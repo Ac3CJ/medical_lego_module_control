@@ -8,11 +8,10 @@
 [![GitHub forks](https://img.shields.io/github/forks/Ac3CJ/medical_lego_module_control)](https://github.com/Ac3CJ/medical_lego_module_control/forks)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-%230077B5.svg?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/conradgacay/)
 [![Issues](https://img.shields.io/github/issues/Ac3CJ/medical_lego_module_control)](https://github.com/Ac3CJ/medical_lego_module_control/issues)
-[![Build Status](https://github.com/Ac3CJ/medical_lego_module_control/actions/workflows/main.yml/badge.svg)](https://github.com/Ac3CJ/medical_lego_module_control/actions)
 ![License](https://img.shields.io/badge/license-MIT-blue)
   
 </div>
 
-This project features a fan controller board designed using the NUCLEO-F070RB development board. The board offers three modes of operation, allowing users to control and monitor the fan's behavior through various user interfaces.
+This project features the Integration & Control for the LM Health Modular Knee Brace
 
 ---
