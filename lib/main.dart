@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'models/module.dart';
+import 'models/module_manager.dart';
+import 'models/module_type.dart';
 
 
 // MIGHT NEED TO MAKE THIS AN OBJECT TO PREVENT CONFUSION IN THE FUTURE
@@ -8,10 +11,6 @@ Map moduleMap = {
   2: 'Infrared',
   3: 'Vibration'
 };
-
-bool heatModuleConnected = false;
-bool infraredModuleConnected = false;
-bool vibrationModuleConnected = false;
 
 void main() {
   runApp(const MyApp());
