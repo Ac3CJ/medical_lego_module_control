@@ -82,17 +82,17 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
   }
 
   void _initialiseDemoModules() {
-    moduleManagers[ModuleType.temperature]?.addNewModule(Module('TMP-001', 0x01, 0x00));
-    moduleManagers[ModuleType.temperature]?.addNewModule(Module('TMP-002', 0x01, 0x01));
-    moduleManagers[ModuleType.temperature]?.addNewModule(Module('TMP-003', 0x01, 0x02));
+    moduleManagers[ModuleType.temperature]?.addNewModule(Module('TMP-001', 0x00, 0x00));
+    moduleManagers[ModuleType.temperature]?.addNewModule(Module('TMP-002', 0x00, 0x01));
+    moduleManagers[ModuleType.temperature]?.addNewModule(Module('TMP-003', 0x00, 0x02));
 
     moduleManagers[ModuleType.infrared]?.addNewModule(Module('IR-001', 0x01, 0x00));
     moduleManagers[ModuleType.infrared]?.addNewModule(Module('IR-002', 0x01, 0x01));
     moduleManagers[ModuleType.infrared]?.addNewModule(Module('IR-003', 0x01, 0x02));
 
-    moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-001', 0x01, 0x00));
-    moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-002', 0x01, 0x01));
-    moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-003', 0x01, 0x02));
+    moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-001', 0x02, 0x00));
+    moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-002', 0x02, 0x01));
+    moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-003', 0x02, 0x02));
   }
 
   // Building the Widgets
@@ -112,6 +112,9 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
                 child: _buildControlRow(index),
               );
             }),
+            
+            // Add the module status table
+            _buildModuleStatusTable(),
           ],
         ),
       ),
@@ -204,6 +207,85 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildModuleStatusTable() {
+    return Card(
+      margin: const EdgeInsets.only(top: 20),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Connected Modules',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            // Create a column for each module type
+            ...ModuleType.values.map((type) {
+              final modules = moduleManagers[type]?.allModules ?? [];
+              if (modules.isEmpty) return const SizedBox.shrink();
+              
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${type.toShortString().capitalise()} Modules',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // List all modules of this type
+                    ...modules.map((module) {
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 8, bottom: 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                module.serialNumber,
+                                style: TextStyle(
+                                  color: module.isConnected 
+                                      ? Colors.green 
+                                      : Colors.grey,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: Text(
+                                'Intensity: ${intensityValues[type.index].round()}%, '
+                                'Time: ${timeValues[type.index]} min',
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ),
+                            Icon(
+                              module.isConnected 
+                                  ? Icons.check_circle 
+                                  : Icons.error,
+                              color: module.isConnected 
+                                  ? Colors.green 
+                                  : Colors.red,
+                              size: 16,
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
       ),
     );
   }
