@@ -7,6 +7,10 @@ class ModuleManager {
   ModuleType _managerType;
 
   // Public
+  Map moduleCommand = {
+    'intensity': 0,
+    'time': 0
+  };
 
   // Constructor
   ModuleManager(this._managerType);
@@ -43,13 +47,13 @@ class ModuleManager {
     }
   }
 
-  void sendCommandToAll(String command) {
+  void sendCommandToAll(Map command) {
     for (var module in connectedModules) {
       module.sendCommand(command);
     }
   }
 
-  void sendCommandToModule(String serialNumber, String command) {
+  void sendCommandToModule(String serialNumber, Map command) {
     final module = _modules.firstWhere(
       (m) => m.serialNumber == serialNumber,
       orElse: () => throw Exception('Module not found'),

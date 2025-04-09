@@ -12,6 +12,14 @@ Map moduleMap = {
   3: 'Vibration'
 };
 
+// Extensions
+extension ParseToString on String {
+  String capitalise() {
+    return '${this[0].toUpperCase()}${substring(1).toLowerCase()}';
+  }
+}
+
+// Main Code
 void main() {
   runApp(const MyApp());
 }
@@ -43,6 +51,51 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
   List<double> intensityValues = [50, 50, 50]; // Initial intensity values (0-100)
   List<double> timeValues = [5, 5, 5]; // Initial time values (0-10 minutes)
 
+  // Initialise the Managers
+  late ModuleManager temperatureModuleManager;
+  late ModuleManager infraredModuleManager;
+  late ModuleManager vibrationModuleManager;
+  late Map<ModuleType, ModuleManager> moduleManagers;
+
+  @override
+  void initState(){
+    super.initState();
+
+    // Initialize values based on ModuleType count
+    final moduleCount = ModuleType.values.length;
+    intensityValues = List<double>.filled(moduleCount, 50);
+    timeValues = List<double>.filled(moduleCount, 5);
+
+    moduleManagers = createModuleManagers();
+
+    _initialiseDemoModules();
+  }
+
+  Map<ModuleType, ModuleManager> createModuleManagers() {
+    final Map<ModuleType, ModuleManager> managers = {};
+    
+    for (final type in ModuleType.values) {
+      managers[type] = ModuleManager(type);
+    }
+    
+    return managers;
+  }
+
+  void _initialiseDemoModules() {
+    moduleManagers[ModuleType.temperature]?.addNewModule(Module('TMP-001', 0x01, 0x00));
+    moduleManagers[ModuleType.temperature]?.addNewModule(Module('TMP-002', 0x01, 0x01));
+    moduleManagers[ModuleType.temperature]?.addNewModule(Module('TMP-003', 0x01, 0x02));
+
+    moduleManagers[ModuleType.infrared]?.addNewModule(Module('IR-001', 0x01, 0x00));
+    moduleManagers[ModuleType.infrared]?.addNewModule(Module('IR-002', 0x01, 0x01));
+    moduleManagers[ModuleType.infrared]?.addNewModule(Module('IR-003', 0x01, 0x02));
+
+    moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-001', 0x01, 0x00));
+    moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-002', 0x01, 0x01));
+    moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-003', 0x01, 0x02));
+  }
+
+  // Building the Widgets
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -53,16 +106,12 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
         padding: const EdgeInsets.all(16.0),
         child: ListView(
           children: [
-            // Row 1
-            _buildControlRow(0),
-            const SizedBox(height: 20),
-            
-            // Row 2
-            _buildControlRow(1),
-            const SizedBox(height: 20),
-            
-            // Row 3
-            _buildControlRow(2),
+            ...List.generate(ModuleType.values.length, (index) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: _buildControlRow(index),
+              );
+            }),
           ],
         ),
       ),
@@ -70,6 +119,7 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
   }
 
   Widget _buildControlRow(int index) {
+    //final moduleType = ModuleType.values[index];
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
@@ -83,11 +133,11 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
             width: double.infinity,
             height: 32,
             child: ElevatedButton(
-              onPressed: () {
-                // Action when button is pressed
+              onPressed: () { // Action when button is pressed
+                moduleManagers[ModuleType.values[index]]?.sendCommandToAll({'intensity': intensityValues[index].toInt(), 'time': timeValues[index]});
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('${moduleMap[index+1]} Module - Intensity: ${intensityValues[index].toInt()}%, Time: ${timeValues[index]} min'),
+                    content: Text('${ModuleType.values[index].toShortString().capitalise()} Module - Intensity: ${intensityValues[index].toInt()}%, Time: ${timeValues[index]} min'),
                   ),
                 );
               },
@@ -98,7 +148,7 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
                 ),
               ),
               child: Text(
-                '${moduleMap[index+1]} Module',
+                '${ModuleType.values[index].toShortString().capitalise()} Module',
                 style: const TextStyle(fontSize: 20, color: Colors.white),
               ),
             ),

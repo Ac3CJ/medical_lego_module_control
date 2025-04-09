@@ -50,7 +50,7 @@ class Module {
     // Add any disconnection logic here
   }
 
-  void sendCommand(String command) {
+  void sendCommand(Map command) {
     if (!isConnected) {
       throw Exception('Cannot send command to disconnected module');
     }
