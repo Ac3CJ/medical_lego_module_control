@@ -19,6 +19,8 @@ class ModuleManager {
   List<Module> get allModules => List.from(_modules);
   List<Module> get connectedModules => _modules.where((module) => module.isConnected).toList();
   ModuleType get managerType => _managerType;
+  num get moduleIntensity => moduleCommand['intensity'];
+  num get moduleTime => moduleCommand['time'];
 
   // Public Methods
   void addNewModule(Module newModule) {
@@ -47,9 +49,10 @@ class ModuleManager {
     }
   }
 
-  void sendCommandToAll(Map command) {
+  void sendCommandToAll(double targetIntensity, double targetTime) {
+    moduleCommand = {'intensity': targetIntensity, 'time': targetTime};
     for (var module in connectedModules) {
-      module.sendCommand(command);
+      module.sendCommand(moduleCommand);
     }
   }
 

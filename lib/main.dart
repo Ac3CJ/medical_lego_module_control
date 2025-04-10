@@ -93,6 +93,7 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
     moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-001', 0x02, 0x00));
     moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-002', 0x02, 0x01));
     moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-003', 0x02, 0x02));
+    moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-004', 0x02, 0x03));
   }
 
   // Building the Widgets
@@ -106,7 +107,7 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
         padding: const EdgeInsets.all(16.0),
         child: ListView(
           children: [
-            ...List.generate(ModuleType.values.length, (index) {
+            ...List.generate((ModuleType.values.length-1), (index) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 20),
                 child: _buildControlRow(index),
@@ -123,6 +124,7 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
 
   Widget _buildControlRow(int index) {
     //final moduleType = ModuleType.values[index];
+    ModuleManager? manager = moduleManagers[ModuleType.values[index]];
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
@@ -137,10 +139,12 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
             height: 32,
             child: ElevatedButton(
               onPressed: () { // Action when button is pressed
-                moduleManagers[ModuleType.values[index]]?.sendCommandToAll({'intensity': intensityValues[index].toInt(), 'time': timeValues[index]});
+              setState(() {
+                manager?.sendCommandToAll(intensityValues[index], timeValues[index]);
+              });
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('${ModuleType.values[index].toShortString().capitalise()} Module - Intensity: ${intensityValues[index].toInt()}%, Time: ${timeValues[index]} min'),
+                    content: Text('${ModuleType.values[index].toShortString().capitalise()} Module - Intensity: ${manager?.moduleIntensity}%, Time: ${manager?.moduleTime} min'),
                   ),
                 );
               },
@@ -225,67 +229,70 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
             ),
             const SizedBox(height: 10),
             // Create a column for each module type
-            ...ModuleType.values.map((type) {
-              final modules = moduleManagers[type]?.allModules ?? [];
-              if (modules.isEmpty) return const SizedBox.shrink();
-              
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${type.toShortString().capitalise()} Modules',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    // List all modules of this type
-                    ...modules.map((module) {
-                      return Padding(
-                        padding: const EdgeInsets.only(left: 8, bottom: 4),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                module.serialNumber,
-                                style: TextStyle(
-                                  color: module.isConnected 
-                                      ? Colors.green 
-                                      : Colors.grey,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 3,
-                              child: Text(
-                                'Intensity: ${intensityValues[type.index].round()}%, '
-                                'Time: ${timeValues[type.index]} min',
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ),
-                            Icon(
-                              module.isConnected 
-                                  ? Icons.check_circle 
-                                  : Icons.error,
-                              color: module.isConnected 
-                                  ? Colors.green 
-                                  : Colors.red,
-                              size: 16,
-                            ),
-                          ],
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: ModuleType.values.map((type) {
+                final modules = moduleManagers[type]?.allModules ?? [];
+                if (modules.isEmpty) return const SizedBox.shrink();
+                
+                final typeIndex = ModuleType.values.indexOf(type);
+                final currentIntensity = intensityValues[typeIndex];
+                final currentTime = timeValues[typeIndex];
+                
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${type.toShortString().capitalise()} (${modules.length})',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      );
-                    }),
-                  ],
-                ),
-              );
-            }),
-          ],
-        ),
+                        const SizedBox(height: 8),
+                        // Parse through each module
+                        ...modules.map((module) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  module.serialNumber,
+                                  style: TextStyle(
+                                    color: module.isConnected 
+                                        ? Colors.green 
+                                        : Colors.grey,
+                                  ),
+                                ),
+                                Text(
+                                  'Location: 0x${(module.locationId as int).toRadixString(16).toUpperCase().padLeft(2,'0')}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                Text(
+                                  'Intensity: ${module.moduleIntensity}%',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                Text(
+                                  'Time: ${module.moduleTime} min',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+          ),
+        ],
+      ),
       ),
     );
   }

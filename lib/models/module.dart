@@ -14,9 +14,13 @@ class Module {
   ModuleType _moduleType = ModuleType.unknown;
 
   // Public
-  bool isConnected = false;
+  bool isConnected = true;
   num status = 0x00;
   List<String> connectedDevices = [];
+  Map moduleCommand = {
+    'intensity': 0,
+    'time': 0
+  };
 
   // Constructor
   Module(this._serialNumber, this._moduleId, this._locationId) {
@@ -33,6 +37,9 @@ class Module {
   num get moduleId => _moduleId;
   String get serialNumber => _serialNumber;
   ModuleType get moduleType => _moduleType;
+  num get locationId => _locationId;
+  num get moduleIntensity => moduleCommand['intensity'];
+  num get moduleTime => moduleCommand['time'];
 
   // Private Methods
   void updateStatus(num newStatus) {
@@ -55,7 +62,8 @@ class Module {
       throw Exception('Cannot send command to disconnected module');
     }
     // Implement specific command handling in subclasses
-    print(command);
+    moduleCommand = command;
+    print('Module: $serialNumber\t$command');
   }
 
   void addConnection(String deviceSerialNumber) {
