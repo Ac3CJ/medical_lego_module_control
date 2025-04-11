@@ -5,6 +5,13 @@ import 'module_type.dart';
 // 0x01 -> Inactive
 // 0x02 -> Active
 // 0x03 -> Pairing
+enum StatusType {
+  connected,
+  disconnected,
+  active,
+  inactive,
+  pairing,
+}
 
 class Module {
   //Private
@@ -12,10 +19,10 @@ class Module {
   num _moduleId;
   num _locationId; 
   ModuleType _moduleType = ModuleType.unknown;
+  StatusType _status = StatusType.disconnected;
 
   // Public
   bool isConnected = true;
-  num status = 0x00;
   List<String> connectedDevices = [];
   Map moduleCommand = {
     'intensity': 0,
@@ -42,18 +49,20 @@ class Module {
   num get moduleTime => moduleCommand['time'];
 
   // Private Methods
-  void updateStatus(num newStatus) {
-    status = newStatus;
-  }
+  /*void updateStatus(num newStatus) {
+    _status = newStatus;
+  }*/
 
   // Public Methods
   void connect() {
     isConnected = true;
+    _status = StatusType.connected;
     // Add any connection logic here
   }
 
   void disconnect() {
     isConnected = false;
+    _status = StatusType.disconnected;
     // Add any disconnection logic here
   }
 
@@ -62,6 +71,7 @@ class Module {
       throw Exception('Cannot send command to disconnected module');
     }
     // Implement specific command handling in subclasses
+    _status = StatusType.active;
     moduleCommand = command;
     print('Module: $serialNumber\t$command');
   }
