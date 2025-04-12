@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'dart:async';
 import 'models/module.dart';
 import 'models/module_manager.dart';
 import 'models/module_type.dart';
+import 'models/bluetooth_service.dart';
 
 
 // MIGHT NEED TO MAKE THIS AN OBJECT TO PREVENT CONFUSION IN THE FUTURE
@@ -57,20 +60,44 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
   late ModuleManager vibrationModuleManager;
   late Map<ModuleType, ModuleManager> moduleManagers;
 
+  // Initialise Bluetooth Services
+  late final BleService bluetoothService;
+  StreamSubscription<BluetoothDevice>? _scanSubscription;
+  
+
   @override
   void initState(){
     super.initState();
 
-    // Initialize values based on ModuleType count
+    // Initialise values based on ModuleType count
     final moduleCount = ModuleType.values.length;
     intensityValues = List<double>.filled(moduleCount, 50);
     timeValues = List<double>.filled(moduleCount, 5);
 
+    // Module Management
     moduleManagers = createModuleManagers();
-
     _initialiseDemoModules();
+
+    // Initialise Bluetooth Services
+    bluetoothService = BleService();
+    _startBluetoothScan();
   }
 
+  @override
+  void dispose() {
+    _scanSubscription?.cancel();
+    bluetoothService.stopScan();
+    super.dispose();
+  }
+
+  // BLE Services Methods
+  void _startBluetoothScan() {
+    _scanSubscription = bluetoothService.startScan(context).listen((device) {
+      // Device found - handled by the BluetoothService dialog
+    });
+  }
+
+  // Module Management Methods
   Map<ModuleType, ModuleManager> createModuleManagers() {
     final Map<ModuleType, ModuleManager> managers = {};
     
