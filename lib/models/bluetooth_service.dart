@@ -2,7 +2,6 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
-import 'module_type.dart';
 
 class BleService {
   static final BleService _instance = BleService._internal();

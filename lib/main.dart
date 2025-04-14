@@ -263,9 +263,9 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
                 final modules = moduleManagers[type]?.allModules ?? [];
                 if (modules.isEmpty) return const SizedBox.shrink();
                 
-                final typeIndex = ModuleType.values.indexOf(type);
-                final currentIntensity = intensityValues[typeIndex];
-                final currentTime = timeValues[typeIndex];
+                //final typeIndex = ModuleType.values.indexOf(type);
+                //final currentIntensity = intensityValues[typeIndex];
+                //final currentTime = timeValues[typeIndex];
                 
                 return Expanded(
                   child: Padding(
@@ -288,14 +288,23 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  module.serialNumber,
-                                  style: TextStyle(
-                                    color: module.isConnected 
-                                        ? Colors.green 
-                                        : Colors.grey,
-                                  ),
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      if (module.isConnected) {module.disconnect();}
+                                      else {module.connect();}
+                                    });
+                                  },
+                                  child: Text(
+                                    module.serialNumber,
+                                    style: TextStyle(
+                                      color: module.isConnected 
+                                          ? Colors.green 
+                                          : Colors.grey,
+                                    ),
                                 ),
+                                ),
+                                
                                 Text(
                                   'Location: 0x${(module.locationId as int).toRadixString(16).toUpperCase().padLeft(2,'0')}',
                                   style: const TextStyle(fontSize: 12),
@@ -311,7 +320,7 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
                               ],
                             ),
                           );
-                        }).toList(),
+                        }),
                       ],
                     ),
                   ),
