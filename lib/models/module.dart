@@ -44,6 +44,7 @@ class Module {
   num get moduleId => _moduleId;
   String get serialNumber => _serialNumber;
   ModuleType get moduleType => _moduleType;
+  StatusType get moduleStatus => _status;
   num get locationId => _locationId;
   num get moduleIntensity => moduleCommand['intensity'];
   num get moduleTime => moduleCommand['time'];
