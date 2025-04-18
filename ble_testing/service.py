@@ -37,6 +37,17 @@ GATT_SERVICE_IFACE = "org.bluez.GattService1"
 GATT_CHRC_IFACE =    "org.bluez.GattCharacteristic1"
 GATT_DESC_IFACE =    "org.bluez.GattDescriptor1"
 
+DEFAULT_SERVICES = [
+    "00001800-0000-1000-8000-00805f9b34fb",  # Generic Access (0x1800)
+    "00001801-0000-1000-8000-00805f9b34fb",  # Generic Attribute (0x1801)
+    "0000180a-0000-1000-8000-00805f9b34fb",  # Device Information (0x180A)
+    "0000184d-0000-1000-8000-00805f9b34fb",  # Microphone Control (0x184D)
+    "00001845-0000-1000-8000-00805f9b34fb",  # Volume Offset Control (0x1845)
+    "00001843-0000-1000-8000-00805f9b34fb",  # Audio Input Control (0x1843)
+    "00001844-0000-1000-8000-00805f9b34fb",  # Volume Control (0x1844)
+    "0000184f-0000-1000-8000-00805f9b34fb",  # Broadcast Audio Scan Service (0x184F)
+]
+
 class InvalidArgsException(dbus.exceptions.DBusException):
     _dbus_error_name = "org.freedesktop.DBus.Error.InvalidArgs"
 

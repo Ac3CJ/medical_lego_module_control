@@ -49,6 +49,48 @@ GATT_CHRC_IFACE = "org.bluez.GattCharacteristic1"
 NOTIFY_TIMEOUT = 5000
 
 # ===============================================================================================================
+# =============================================== INFO SERVICE ==================================================
+# ===============================================================================================================
+
+class InfoService(Service):
+    THERAPY_SVC_UUID = "00000001-710e-4a5b-8d75-3e5b444bc3cf"
+
+    def __init__(self, index):
+        self.intensity = 0
+        self.timeElapsed = 0
+        self.targetTime = 0
+        self.isTherapyActive = False
+
+        Service.__init__(self, index, self.THERAPY_SVC_UUID, True)
+        self.add_characteristic(DeviceIdCharacteristic(self))
+
+    # Setters
+
+    # Getters
+
+# =============================================== CHARACTERISTICS ===============================================
+
+
+class DeviceIdCharacteristic(Characteristic):
+    DEVICE_ID_CHARACTERISTIC_UUID = "2A00"
+    DEVICE_ID_CHARACTERISTIC_VALUE = "Device ID"
+
+    def __init__(self, service):
+        Characteristic.__init__(
+                self, self.DEVICE_ID_CHARACTERISTIC_UUID,
+                ["read"],
+                service)
+
+    def ReadValue(self, options):
+        value = []
+        desc = self.DEVICE_ID_CHARACTERISTIC_VALUE
+
+        for c in desc:
+            value.append(dbus.Byte(c.encode()))
+
+        return value
+
+# ===============================================================================================================
 # =============================================== THERAPY SERVICE ===============================================
 # ===============================================================================================================
 
@@ -97,7 +139,6 @@ class TherapyService(Service):
     
     def getIsTherapyActive(self):
         return self.isTherapyActive
-    
 
 # =============================================== TIME TRACKING CHARACTERISTIC ===============================================
 
@@ -366,6 +407,7 @@ class TargetTimeDescriptor(Descriptor):
 
 app = Application()
 app.add_service(TherapyService(0))
+app.add_service(InfoService(1))
 app.register()
 
 adv = TherapyAdvertisement(0)

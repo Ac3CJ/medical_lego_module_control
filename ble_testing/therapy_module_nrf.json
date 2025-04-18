@@ -1,0 +1,72 @@
+{
+    "services": [
+      {
+        "uuid": "00000001-710e-4a5b-8d75-3e5b444bc3cf",
+        "name": "Therapy Service",
+        "type": "primary",
+        "characteristics": [
+          {
+            "uuid": "00000002-710e-4a5b-8d75-3e5b444bc3cf",
+            "name": "Time Elapsed",
+            "properties": ["notify", "read"],
+            "descriptors": [
+              {
+                "uuid": "2901",
+                "name": "Description",
+                "value": "Time Elapsed in Seconds"
+              }
+            ]
+          },
+          {
+            "uuid": "00000003-710e-4a5b-8d75-3e5b444bc3cf",
+            "name": "Intensity",
+            "properties": ["read", "write", "notify"],
+            "descriptors": [
+              {
+                "uuid": "2901",
+                "name": "Description",
+                "value": "Intensity Percentage"
+              }
+            ]
+          },
+          {
+            "uuid": "00000004-710e-4a5b-8d75-3e5b444bc3cf",
+            "name": "Target Time",
+            "properties": ["read", "write", "notify"],
+            "descriptors": [
+              {
+                "uuid": "2901",
+                "name": "Description",
+                "value": "Target Time in Seconds"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "uuid": "00000011-710e-4a5b-8d75-3e5b444bc3cf",
+        "name": "Module Information",
+        "type": "primary",
+        "characteristics": [
+            {
+                "uuid": "00000012-710e-4a5b-8d75-3e5b444bc3cf",
+                "name": "Device ID",
+                "properties": ["read"]
+            },
+            {
+                "uuid": "00000013-710e-4a5b-8d75-3e5b444bc3cf",
+                "name": "Location ID",
+                "properties": ["read"]
+            }
+        ]
+      }
+
+    ],
+    "settings": {
+      "device_name": "Therapy Module",
+      "appearance": "generic",
+      "connection_interval": 30,
+      "slave_latency": 0,
+      "supervision_timeout": 500
+    }
+  }
