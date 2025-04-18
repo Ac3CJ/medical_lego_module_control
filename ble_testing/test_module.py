@@ -43,9 +43,14 @@ from service import Application, Service, Characteristic, Descriptor
 
 # Functionality 
 import time
+import threading
 
 GATT_CHRC_IFACE = "org.bluez.GattCharacteristic1"
 NOTIFY_TIMEOUT = 5000
+
+# ===============================================================================================================
+# =============================================== THERAPY SERVICE ===============================================
+# ===============================================================================================================
 
 class TherapyAdvertisement(Advertisement):
     def __init__(self, index):
@@ -59,22 +64,42 @@ class TherapyService(Service):
     def __init__(self, index):
         self.intensity = 0
         self.timeElapsed = 0
+        self.targetTime = 0
+        self.isTherapyActive = False
 
         Service.__init__(self, index, self.THERAPY_SVC_UUID, True)
         self.add_characteristic(TimeCharacteristic(self))
         self.add_characteristic(IntensityCharacteristic(self))
+        self.add_characteristic(TargetTimeCharacteristic(self))
 
+    # Setters
     def setTimeElapsed(self, timeElapsed):
         self.timeElapsed = timeElapsed
-
+        
     def setIntensity(self, intensity):
         self.intensity = intensity
 
+    def setTargetTime(self, targetTime):
+        self.targetTime = targetTime
+
+    def setIsTherapyActive(self, isTherapyActive):
+        self.isTherapyActive = isTherapyActive
+
+    # Getters
     def getTimeElapsed(self):
         return self.timeElapsed
 
     def getIntensity(self):
         return self.intensity
+    
+    def getTargetTime(self):
+        return self.targetTime
+    
+    def getIsTherapyActive(self):
+        return self.isTherapyActive
+    
+
+# =============================================== TIME TRACKING CHARACTERISTIC ===============================================
 
 class TimeCharacteristic(Characteristic):
     TIME_CHARACTERISTIC_UUID = "00000002-710e-4a5b-8d75-3e5b444bc3cf"
@@ -82,11 +107,32 @@ class TimeCharacteristic(Characteristic):
     def __init__(self, service):
         self.notifying = False
         self.startTime = time.time()
+        self.moduleTime = 0
 
         Characteristic.__init__(
                 self, self.TIME_CHARACTERISTIC_UUID,
                 ["notify", "read"], service)
         self.add_descriptor(TimeDescriptor(self))
+
+        # Start the background reset thread
+        self.reset_thread = threading.Thread(target=self.reset_loop, daemon=True)
+        self.reset_thread.start()
+
+    def reset_loop(self):
+        while True:
+            time.sleep(1)
+            if ((time.time() - self.startTime) >= self.service.getTargetTime()) and (self.service.getIsTherapyActive()):
+                print(f"[INFO] Resetting intensity and timeElapsed after {self.service.getTargetTime()}s of inactivity.")
+
+                # Reset Other Characteristics
+                self.service.setIntensity(0)
+                self.service.setTargetTime(0)
+                self.service.setIsTherapyActive(False)
+
+                # Reset Local Vars
+                self.timeElapsed = 0
+                self.targetTime = 0
+                self.startTime = time.time()
 
     def getTimeElapsed(self):
         value = []
@@ -95,18 +141,22 @@ class TimeCharacteristic(Characteristic):
 
         moduleTime = round(currentTime - self.startTime)
 
+        if (not self.service.getIsTherapyActive()):
+            moduleTime = 0
+            self.startTime = time.time()
+
+        self.service.setTimeElapsed(moduleTime)
+
         # Convert to Byte String
         strModuleTime = str(moduleTime) + " " + unit
         for c in strModuleTime:
             value.append(dbus.Byte(c.encode()))
-
         return value
 
     def setTimeElapsedCallback(self):
         if self.notifying:
             value = self.getTimeElapsed()
             self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
-
         return self.notifying
 
     def StartNotify(self):
@@ -145,6 +195,8 @@ class TimeDescriptor(Descriptor):
 
         return value
 
+# =============================================== INTENSITY CHARACTERISTIC ===============================================
+
 class IntensityCharacteristic(Characteristic):
     UNIT_CHARACTERISTIC_UUID = "00000003-710e-4a5b-8d75-3e5b444bc3cf"
 
@@ -154,22 +206,20 @@ class IntensityCharacteristic(Characteristic):
 
         Characteristic.__init__(
                 self, self.UNIT_CHARACTERISTIC_UUID,
-                ["read", "write"], service)
+                ["notify", "read", "write"], service)
         self.add_descriptor(IntensityDescriptor(self))
 
     def getIntensity(self):
         value = []
-        unit = "%"
-        moduleIntensity = 50
-
-        # Convert to Byte String
-        strModuleIntensity = str(moduleIntensity) + unit
-        for c in strModuleIntensity:
+        strValue = str(self.intensity) + "%"
+        for c in strValue:
             value.append(dbus.Byte(c.encode()))
         return value
 
     def setIntensityCallback(self):
         if self.notifying:
+            self.intensity = self.service.getIntensity()
+
             value = self.getIntensity()
             self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
 
@@ -181,6 +231,8 @@ class IntensityCharacteristic(Characteristic):
 
         self.notifying = True
 
+        self.intensity = self.service.getIntensity()
+
         value = self.getIntensity()
         self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
         self.add_timeout(NOTIFY_TIMEOUT, self.setIntensityCallback)
@@ -189,10 +241,7 @@ class IntensityCharacteristic(Characteristic):
         self.notifying = False
 
     def ReadValue(self, options):
-        value = []
-        strValue = str(self.intensity) + "%"
-        for c in strValue:
-            value.append(dbus.Byte(c.encode()))
+        value = self.getIntensity()
         return value
     
     def WriteValue(self, value, options):
@@ -228,6 +277,92 @@ class IntensityDescriptor(Descriptor):
             value.append(dbus.Byte(c.encode()))
 
         return value
+
+# =============================================== TARGET TIME CHARACTERISTIC ===============================================
+
+class TargetTimeCharacteristic(Characteristic):
+    UNIT_CHARACTERISTIC_UUID = "00000004-710e-4a5b-8d75-3e5b444bc3cf"
+
+    def __init__(self, service):
+        self.notifying = False
+        self.targetTime = 0
+
+        Characteristic.__init__(
+                self, self.UNIT_CHARACTERISTIC_UUID,
+                ["notify", "read", "write"], service)
+        self.add_descriptor(TargetTimeDescriptor(self))
+
+    def getTargetTime(self):
+        value = []
+        strValue = str(self.targetTime) + " Seconds"
+        for c in strValue:
+            value.append(dbus.Byte(c.encode()))
+        return value
+
+    def setTargetTimeCallback(self):
+        if self.notifying:
+            self.targetTime = self.service.getTargetTime()
+
+            value = self.getTargetTime()
+            self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
+
+        return self.notifying
+
+    def StartNotify(self):
+        if self.notifying:
+            return
+
+        self.notifying = True
+
+        self.targetTime = self.service.getTargetTime()
+
+        value = self.getTargetTime()
+        self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
+        self.add_timeout(NOTIFY_TIMEOUT, self.setTargetTimeCallback)
+
+    def StopNotify(self):
+        self.notifying = False
+
+    def ReadValue(self, options):
+        value = self.getTargetTime()
+        return value
+    
+    def WriteValue(self, value, options):
+        try:
+            strValue = ''.join([chr(byte) for byte in value])
+            newTargetTime = int(strValue)
+
+            self.targetTime = newTargetTime
+            self.service.setTargetTime(newTargetTime)  # Update in parent service
+            self.service.setIsTherapyActive(True)
+
+            self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": self.ReadValue({})}, [])
+
+            print(f"[INFO] Target Time updated to: {self.targetTime}")
+
+        except Exception as e:
+            print(f"[ERROR] Failed to write Target Time value: {e}")
+
+class TargetTimeDescriptor(Descriptor):
+    TARGET_TIME_DESCRIPTOR_UUID = "2901"
+    TARGET_TIME_DESCRIPTOR_VALUE = "Target Time"
+
+    def __init__(self, characteristic):
+        Descriptor.__init__(
+                self, self.TARGET_TIME_DESCRIPTOR_UUID,
+                ["read"],
+                characteristic)
+
+    def ReadValue(self, options):
+        value = []
+        desc = self.TARGET_TIME_DESCRIPTOR_VALUE
+
+        for c in desc:
+            value.append(dbus.Byte(c.encode()))
+
+        return value
+    
+# =============================================== MAIN CODE ===============================================
 
 app = Application()
 app.add_service(TherapyService(0))
