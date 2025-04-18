@@ -237,13 +237,11 @@ class Characteristic(dbus.service.Object):
 
     def get_bus(self):
         bus = self.bus
-
         return bus
 
     def get_next_index(self):
         idx = self.next_index
         self.next_index += 1
-
         return idx
 
     def add_timeout(self, timeout, callback):
