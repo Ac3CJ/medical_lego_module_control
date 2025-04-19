@@ -1,13 +1,12 @@
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:get/get.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
-class BleService {
-  static final BleService _instance = BleService._internal();
-  factory BleService() => _instance;
-  BleService._internal();
+class BleController extends GetxController{
+  // FlutterBluePlus flutterBlue = FlutterBluePlus();
 
   // Filter for specific device names or service UUIDs
   final List<String> _targetDevicePrefixes = ['TMP-', 'IR-', 'VBR-', 'CJ02-', 'LMTherapy-',];
@@ -18,33 +17,10 @@ class BleService {
     Guid('00000011-710e-4a5b-8d75-3e5b444bc3cf'), // Module Information service
   ];
 
-  Stream<BluetoothDevice> startScan(BuildContext context) {
-    // Request permissions
-    _requestPermissions();
+  // Getters
+  Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults;
 
-    // Start scanning
-    FlutterBluePlus.startScan(
-      timeout: const Duration(seconds: 20),
-      withServices: _targetServiceUuids,
-    );
-
-    // Listen for scan results
-    return FlutterBluePlus.scanResults
-        .where((results) => results.isNotEmpty)
-        .asyncMap((results) => results)
-        .expand((results) => results)
-        .where((result) => _isTargetDevice(result.device))
-        .map((result) => result.device)
-        .distinct()
-        .transform(StreamTransformer.fromHandlers(handleData: (data, sink) { print(data); sink.add(data); }));
-  }
-
-  bool _isTargetDevice(BluetoothDevice device) {
-    // Check if device name matches any prefix
-    final name = device.platformName;
-    return _targetDevicePrefixes.any((prefix) => name.startsWith(prefix));
-  }
-
+  // Private Methods
   Future<void> _requestPermissions() async {
     await Permission.location.request();
     await Permission.bluetooth.request();
@@ -52,41 +28,16 @@ class BleService {
     await Permission.bluetoothScan.request();
   }
 
-  Future<BleDeviceManager> connectToDevice(BluetoothDevice device) async {
-    final manager = BleDeviceManager(device);
-    await manager.connect();
-    return manager;
-  }
+  // Public Methods
+  Future scanDevices() async {
+    _requestPermissions();
 
-  void _showDeviceFoundDialog(BuildContext context, BluetoothDevice device) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Device Found'),
-        content: Text('Found compatible device: ${device.platformName}'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Dismiss'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              final manager = await connectToDevice(device);
-              // You might want to return this or handle it differently
-            },
-            child: Text('Connect'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> stopScan() async {
-    await FlutterBluePlus.stopScan();
+    FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
+    //FlutterBluePlus.stopScan();
   }
 }
 
+/*
 class BleDeviceManager {
   static final therapyControlService = Guid('00000001-710e-4a5b-8d75-3e5b444bc3cf');
   static final moduleInfoService = Guid('00000011-710e-4a5b-8d75-3e5b444bc3cf');
@@ -196,4 +147,4 @@ class BleDeviceManager {
       return characteristic.onValueReceived;
     }).asStream().asyncExpand((s) => s);
   }
-}
+}*/

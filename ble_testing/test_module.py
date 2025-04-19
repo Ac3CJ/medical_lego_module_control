@@ -66,7 +66,8 @@ class bcolors:
 class TherapyAdvertisement(Advertisement):
     def __init__(self, index):
         Advertisement.__init__(self, index, "peripheral")
-        self.add_local_name("LMTherapy-Module")
+        # self.add_local_name("LMTherapy-Module")
+        self.add_local_name("LM Health Therapy Device")
         self.include_tx_power = True
 
 # ===============================================================================================================

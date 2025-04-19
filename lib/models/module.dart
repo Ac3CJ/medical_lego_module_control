@@ -1,3 +1,5 @@
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+
 import 'module_type.dart';
 
 // Module Status is held as a binary value
@@ -30,7 +32,7 @@ class Module {
   };
 
   // Constructor
-  Module(this._serialNumber, this._moduleId, this._locationId) {
+  Module(this._serialNumber, this._moduleId, this._locationId, {BluetoothDevice? bleDevice}) {
     // Assign the module type based on the ID
     switch(_moduleId) {
       case 0x00: _moduleType = ModuleType.temperature;

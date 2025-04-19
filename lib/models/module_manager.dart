@@ -1,6 +1,9 @@
 import 'module.dart';
 import 'module_type.dart';
 
+// This Class should be used to abstract all of the BLE stuff from the main code, meaning that only the data from the app gets sent here.
+// The data should be handled and converted to BLE stuff in module.dart
+
 class ModuleManager {
   // Private
   List<Module> _modules = [];
