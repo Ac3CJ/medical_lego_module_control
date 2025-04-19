@@ -48,12 +48,23 @@ import threading
 GATT_CHRC_IFACE = "org.bluez.GattCharacteristic1"
 NOTIFY_TIMEOUT = 5000
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 # ===============================================================================================================
 # =============================================== INFO SERVICE ==================================================
 # ===============================================================================================================
 
 class InfoService(Service):
-    THERAPY_SVC_UUID = "00000001-710e-4a5b-8d75-3e5b444bc3cf"
+    THERAPY_SVC_UUID = "00000011-710e-4a5b-8d75-3e5b444bc3cf"
 
     def __init__(self, index):
         self.intensity = 0
@@ -72,8 +83,8 @@ class InfoService(Service):
 
 
 class DeviceIdCharacteristic(Characteristic):
-    DEVICE_ID_CHARACTERISTIC_UUID = "2A00"
-    DEVICE_ID_CHARACTERISTIC_VALUE = "Device ID"
+    DEVICE_ID_CHARACTERISTIC_UUID = "00000012-710e-4a5b-8d75-3e5b444bc3cf"
+    DEVICE_ID_CHARACTERISTIC_VALUE = "TMP-001"
 
     def __init__(self, service):
         Characteristic.__init__(
@@ -84,6 +95,25 @@ class DeviceIdCharacteristic(Characteristic):
     def ReadValue(self, options):
         value = []
         desc = self.DEVICE_ID_CHARACTERISTIC_VALUE
+
+        for c in desc:
+            value.append(dbus.Byte(c.encode()))
+
+        return value
+
+class LocationIdCharacteristic(Characteristic):
+    LOCATION_ID_CHARACTERISTIC_UUID = "00000013-710e-4a5b-8d75-3e5b444bc3cf"
+    LOCATION_ID_CHARACTERISTIC_VALUE = "01"
+
+    def __init__(self, service):
+        Characteristic.__init__(
+                self, self.LOCATION_ID_CHARACTERISTIC_UUID,
+                ["read"],
+                service)
+
+    def ReadValue(self, options):
+        value = []
+        desc = self.LOCATION_ID_CHARACTERISTIC_VALUE
 
         for c in desc:
             value.append(dbus.Byte(c.encode()))
@@ -110,9 +140,12 @@ class TherapyService(Service):
         self.isTherapyActive = False
 
         Service.__init__(self, index, self.THERAPY_SVC_UUID, True)
+
+        # Initialise Characteristics
         self.add_characteristic(TimeCharacteristic(self))
         self.add_characteristic(IntensityCharacteristic(self))
         self.add_characteristic(TargetTimeCharacteristic(self))
+        self.add_characteristic(StatusCharacteristic(self))
 
     # Setters
     def setTimeElapsed(self, timeElapsed):
@@ -163,7 +196,7 @@ class TimeCharacteristic(Characteristic):
         while True:
             time.sleep(1)
             if ((time.time() - self.startTime) >= self.service.getTargetTime()) and (self.service.getIsTherapyActive()):
-                print(f"[INFO] Resetting intensity and timeElapsed after {self.service.getTargetTime()}s of inactivity.")
+                print(f"{bcolors.HEADER}[INFO] Resetting intensity and timeElapsed after {self.service.getTargetTime()}s of inactivity.{bcolors.ENDC}")
 
                 # Reset Other Characteristics
                 self.service.setIntensity(0)
@@ -293,6 +326,13 @@ class IntensityCharacteristic(Characteristic):
             self.intensity = newIntensity
             self.service.setIntensity(newIntensity)  # Update in parent service
 
+            # Check to make sure Therapy doesn't start prematurely
+            if (self.service.getTargetTime() > 0):
+                self.service.setIsTherapyActive(True)
+                print(f"{bcolors.OKGREEN}[INFO] Therapy Started{bcolors.ENDC}")
+            else:
+                print(f"{bcolors.WARNING}[INFO] Awaiting Therapy Target Time{bcolors.ENDC}")
+
             self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": self.ReadValue({})}, [])
 
             print(f"[INFO] Intensity updated to: {self.intensity}")
@@ -375,7 +415,13 @@ class TargetTimeCharacteristic(Characteristic):
 
             self.targetTime = newTargetTime
             self.service.setTargetTime(newTargetTime)  # Update in parent service
-            self.service.setIsTherapyActive(True)
+
+            # Check to make sure Therapy doesn't start prematurely
+            if (self.service.getIntensity() > 0):
+                self.service.setIsTherapyActive(True)
+                print(f"{bcolors.OKGREEN}[INFO] Therapy Started{bcolors.ENDC}")
+            else:
+                print(f"{bcolors.WARNING}[INFO] Awaiting Therapy Intensity{bcolors.ENDC}")
 
             self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": self.ReadValue({})}, [])
 
@@ -403,6 +449,58 @@ class TargetTimeDescriptor(Descriptor):
 
         return value
     
+# =============================================== STATUS CHARACTERISTIC ===============================================
+
+class StatusCharacteristic(Characteristic):
+    UNIT_CHARACTERISTIC_UUID = "00000005-710e-4a5b-8d75-3e5b444bc3cf"
+
+    def __init__(self, service):
+        self.notifying = False
+        self.status = ""
+
+        Characteristic.__init__(
+                self, self.UNIT_CHARACTERISTIC_UUID,
+                ["notify", "read"], service)
+        self.add_descriptor(TargetTimeDescriptor(self))
+
+    def getStatus(self):
+        value = []
+        
+        self.status = "Inactive"
+        if (self.service.getIsTherapyActive()):
+            self.status = "Active"
+
+        strValue = self.status
+        for c in strValue:
+            value.append(dbus.Byte(c.encode()))
+        return value
+
+    def setTargetTimeCallback(self):
+        if self.notifying:
+
+            value = self.getStatus()
+            self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
+
+        return self.notifying
+
+    def StartNotify(self):
+        if self.notifying:
+            return
+
+        self.notifying = True
+
+        value = self.getStatus()
+        self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
+        self.add_timeout(NOTIFY_TIMEOUT, self.setTargetTimeCallback)
+
+    def StopNotify(self):
+        self.notifying = False
+
+    def ReadValue(self, options):
+        value = self.getStatus()
+        return value
+    
+
 # =============================================== MAIN CODE ===============================================
 
 app = Application()
