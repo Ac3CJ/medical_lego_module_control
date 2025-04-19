@@ -94,7 +94,28 @@ class _SliderDemoPageState extends State<SliderDemoPage> {
   void _startBluetoothScan() {
     _scanSubscription = bluetoothService.startScan(context).listen((device) {
       // Device found - handled by the BluetoothService dialog
+      // Check if this is one of our modules
+      final serialNumber = device.platformName;
+      final type = _getModuleTypeFromSerial(serialNumber);
+
+      if (type != ModuleType.unknown) {
+        // Enter Code to Add BLE Module  
+      
+        // moduleManagers[type]?.addNewModule(module);
+
+        // Update UI
+        if (mounted) {
+          setState(() {});
+        }
+      }
     });
+  }
+
+  ModuleType _getModuleTypeFromSerial(String serialNumber) {
+    if (serialNumber.startsWith('TMP-')) return ModuleType.temperature;
+    if (serialNumber.startsWith('IR-')) return ModuleType.infrared;
+    if (serialNumber.startsWith('VBR-')) return ModuleType.vibration;
+    return ModuleType.unknown;
   }
 
   // Module Management Methods

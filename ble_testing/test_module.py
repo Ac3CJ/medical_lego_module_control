@@ -60,6 +60,16 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 # ===============================================================================================================
+# =============================================== ADVERTISEMENT =================================================
+# ===============================================================================================================
+
+class TherapyAdvertisement(Advertisement):
+    def __init__(self, index):
+        Advertisement.__init__(self, index, "peripheral")
+        self.add_local_name("LMTherapy-Module")
+        self.include_tx_power = True
+
+# ===============================================================================================================
 # =============================================== INFO SERVICE ==================================================
 # ===============================================================================================================
 
@@ -74,6 +84,7 @@ class InfoService(Service):
 
         Service.__init__(self, index, self.THERAPY_SVC_UUID, True)
         self.add_characteristic(DeviceIdCharacteristic(self))
+        self.add_characteristic(LocationIdCharacteristic(self))
 
     # Setters
 
@@ -123,12 +134,6 @@ class LocationIdCharacteristic(Characteristic):
 # ===============================================================================================================
 # =============================================== THERAPY SERVICE ===============================================
 # ===============================================================================================================
-
-class TherapyAdvertisement(Advertisement):
-    def __init__(self, index):
-        Advertisement.__init__(self, index, "peripheral")
-        self.add_local_name("Therapy Module")
-        self.include_tx_power = True
 
 class TherapyService(Service):
     THERAPY_SVC_UUID = "00000001-710e-4a5b-8d75-3e5b444bc3cf"
