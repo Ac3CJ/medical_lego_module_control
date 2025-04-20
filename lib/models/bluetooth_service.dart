@@ -1,31 +1,34 @@
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:get/get.dart';
 import 'dart:async';
-import 'dart:typed_data';
 
-class BleController extends GetxController{
-  // FlutterBluePlus flutterBlue = FlutterBluePlus();
+class BleController extends GetxController {
+  // Private
+  final List<String> _targetDevicePrefixes = ['LM Health'];
 
-  // Filter for specific device names or service UUIDs
-  final List<String> _targetDevicePrefixes = ['LM Health',];
-  final List<Guid> _targetServiceUuids = [
-    // Guid('0000180a-0000-1000-8000-00805f9b34fb'), // Common device info service
-    // Guid('FFF6'), // Common Matter service
-    Guid('00000001-710e-4a5b-8d75-3e5b444bc3cf'), // Therapy Control service
-    Guid('00000011-710e-4a5b-8d75-3e5b444bc3cf'), // Module Information service
-  ];
+  // Target Service and Characteristic UUIDs
+  final Guid _informationServiceUuid = Guid('00000011-710e-4a5b-8d75-3e5b444bc3cf');
+  final Guid _deviceIdCharUuid = Guid('00000012-710e-4a5b-8d75-3e5b444bc3cf');
+  final Guid _locationIdCharUuid = Guid('00000013-710e-4a5b-8d75-3e5b444bc3cf');
+
+  // Identification Fields
+  RxString _currentDeviceId = ''.obs;
+  RxString _currentDeviceLocationId = ''.obs;
+  RxString _currentDeviceMacAddress = ''.obs;
 
   // Getters
-  Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults
-    .map((results) => results.where((result) {
-            final deviceName = result.device.platformName;
-            if (deviceName.isEmpty) return false;
-            
-            // Check if device name starts with any of the target prefixes
-            return _targetDevicePrefixes.any((prefix) => deviceName.startsWith(prefix));
-    }).toList());
+  Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults.map(
+    (results) => results.where((result) {
+      final deviceName = result.device.platformName;
+      if (deviceName.isEmpty) return false;
+      return _targetDevicePrefixes.any((prefix) => deviceName.startsWith(prefix));
+    }).toList(),
+  );
+    
+  RxString get currentDeviceId => _currentDeviceId;
+  RxString get currentDeviceLocationId => _currentDeviceLocationId;
+  RxString get currentDeviceMacAddress => _currentDeviceMacAddress;
 
   // Private Methods
   Future<void> _requestPermissions() async {
@@ -35,21 +38,60 @@ class BleController extends GetxController{
     await Permission.bluetoothScan.request();
   }
 
-  // Public Methods
-  Future scanDevices() async {
-    _requestPermissions();
+  Future<void> _fetchDeviceInformation(BluetoothDevice device) async {
+    try {
+      List<BluetoothService> services = await device.discoverServices();
+      final infoService = services.firstWhere(
+        (service) => service.serviceUuid == _informationServiceUuid,
+        orElse: () => throw Exception('Information service not found'),
+      );
 
-    FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
-    //FlutterBluePlus.stopScan();
+      final deviceIdChar = infoService.characteristics.firstWhere(
+        (c) => c.characteristicUuid == _deviceIdCharUuid,
+        orElse: () => throw Exception('Device ID characteristic not found'),
+      );
+      final locationIdChar = infoService.characteristics.firstWhere(
+        (c) => c.characteristicUuid == _locationIdCharUuid,
+        orElse: () => throw Exception('Location ID characteristic not found'),
+      );
+
+      final deviceIdValue = await deviceIdChar.read();
+      final locationIdValue = await locationIdChar.read();
+
+      _currentDeviceId.value = String.fromCharCodes(deviceIdValue);
+      _currentDeviceLocationId.value = String.fromCharCodes(locationIdValue);
+
+      print('Device ID: ${_currentDeviceId.value}');
+      print('Location ID: ${_currentDeviceLocationId.value}');
+      print('MAC Address: ${_currentDeviceMacAddress.value}');
+    } catch (e) {
+      print('Error fetching device information: $e');
+    }
   }
 
-  Future<void> connectToDevice(BluetoothDevice device) async{
-    await device.connect(timeout: Duration(seconds: 15));
+  // Public Methods
+  Future<void> scanDevices() async {
+    await _requestPermissions();
+    FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
+  }
 
-    device.connectionState.listen((isConnected) {
-      if (isConnected == BluetoothConnectionState.connected) {print('Device Connected to: ${device.platformName}');}
-      else {print('Device Disconnected');}
-    });
+  Future<void> connectToDevice(BluetoothDevice device) async {
+    try {
+      await device.connect(timeout: Duration(seconds: 15));
+
+      _currentDeviceMacAddress.value = device.remoteId.str;
+
+      device.connectionState.listen((state) async {
+        if (state == BluetoothConnectionState.connected) {
+          print('Device Connected to: ${device.platformName}');
+          await _fetchDeviceInformation(device);
+        } else {
+          print('Device Disconnected');
+        }
+      });
+    } catch (e) {
+      print('Connection error: $e');
+    }
   }
 
   @override
@@ -58,6 +100,7 @@ class BleController extends GetxController{
     super.onClose();
   }
 }
+
 
 /*
 class BleDeviceManager {

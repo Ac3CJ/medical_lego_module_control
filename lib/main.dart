@@ -74,7 +74,7 @@ class _HomePageState extends State<HomePage> {
 
     // Module Management
     moduleManagers = createModuleManagers();
-    _initialiseDemoModules();
+    // _initialiseDemoModules();
 
     // Bluetooth Services
     bleController = BleController();
@@ -98,18 +98,18 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _initialiseDemoModules() {
-    moduleManagers[ModuleType.temperature]?.addNewModule(Module('TMP-001', 0x00, 0x00));
-    moduleManagers[ModuleType.temperature]?.addNewModule(Module('TMP-002', 0x00, 0x01));
-    moduleManagers[ModuleType.temperature]?.addNewModule(Module('TMP-003', 0x00, 0x02));
+    moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'TMP-001', 0x00));
+    moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'TMP-002', 0x01));
+    moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'TMP-003', 0x02));
 
-    moduleManagers[ModuleType.infrared]?.addNewModule(Module('IR-001', 0x01, 0x00));
-    moduleManagers[ModuleType.infrared]?.addNewModule(Module('IR-002', 0x01, 0x01));
-    moduleManagers[ModuleType.infrared]?.addNewModule(Module('IR-003', 0x01, 0x02));
+    moduleManagers[ModuleType.infrared]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'IR-001', 0x00));
+    moduleManagers[ModuleType.infrared]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'IR-002', 0x01));
+    moduleManagers[ModuleType.infrared]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'IR-003', 0x02));
 
-    moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-001', 0x02, 0x00));
-    moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-002', 0x02, 0x01));
-    moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-003', 0x02, 0x02));
-    moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-004', 0x02, 0x03));
+    moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'VBR-001', 0x00));
+    moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'VBR-002', 0x01));
+    moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'VBR-003', 0x02));
+    moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'VBR-004', 0x03));
   }
 
   // Building the Widgets
@@ -337,7 +337,7 @@ class _HomePageState extends State<HomePage> {
       margin: const EdgeInsets.all(16),
       child: GetBuilder<BleController>(
         init: bleController, // Use the class-level instance
-        builder: (controller) {
+        builder: (bleController) {
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -367,7 +367,7 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   children: [
                     ElevatedButton(
-                      onPressed: () => controller.scanDevices(),
+                      onPressed: () => bleController.scanDevices(),
                       style: ElevatedButton.styleFrom(
                         foregroundColor: Colors.white,
                         backgroundColor: Colors.blue,
@@ -383,7 +383,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     const SizedBox(height: 16),
                     StreamBuilder<List<ScanResult>>(
-                      stream: controller.scanResults,
+                      stream: bleController.scanResults,
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {
                           return const Padding(
@@ -435,7 +435,33 @@ class _HomePageState extends State<HomePage> {
                                         color: _getRssiColor(data.rssi),
                                       ),
                                     ),
-                                    onTap: () => controller.connectToDevice(data.device),
+                                    onTap: () {
+                                      bleController.connectToDevice(data.device);
+                                      print(bleController.currentDeviceId.value);
+                                      print(bleController.currentDeviceLocationId.value);
+                                      print(bleController.currentDeviceMacAddress.value);
+
+                                      setState(() {
+                                        switch(bleController.currentDeviceId.value.split('-')[0]) {
+                                          case 'TMP': moduleManagers[ModuleType.temperature]?.addNewModule(Module(
+                                            bleController.currentDeviceMacAddress.value, 
+                                            bleController.currentDeviceId.value, 
+                                            int.parse(bleController.currentDeviceLocationId.value)));
+                                          case 'IR': moduleManagers[ModuleType.infrared]?.addNewModule(Module(
+                                            bleController.currentDeviceMacAddress.value, 
+                                            bleController.currentDeviceId.value, 
+                                            int.parse(bleController.currentDeviceLocationId.value)));
+                                          case 'VBR': moduleManagers[ModuleType.vibration]?.addNewModule(Module(
+                                            bleController.currentDeviceMacAddress.value, 
+                                            bleController.currentDeviceId.value, 
+                                            int.parse(bleController.currentDeviceLocationId.value)));
+                                          default: moduleManagers[ModuleType.unknown]?.addNewModule(Module(
+                                            bleController.currentDeviceMacAddress.value, 
+                                            bleController.currentDeviceId.value, 
+                                            int.parse(bleController.currentDeviceLocationId.value)));
+                                        }
+                                      });
+                                    },
                                   ),
                                 );
                               },

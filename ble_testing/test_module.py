@@ -115,7 +115,7 @@ class DeviceIdCharacteristic(Characteristic):
 
 class LocationIdCharacteristic(Characteristic):
     LOCATION_ID_CHARACTERISTIC_UUID = "00000013-710e-4a5b-8d75-3e5b444bc3cf"
-    LOCATION_ID_CHARACTERISTIC_VALUE = "01"
+    LOCATION_ID_CHARACTERISTIC_VALUE = 1
 
     def __init__(self, service):
         Characteristic.__init__(
@@ -125,7 +125,7 @@ class LocationIdCharacteristic(Characteristic):
 
     def ReadValue(self, options):
         value = []
-        desc = self.LOCATION_ID_CHARACTERISTIC_VALUE
+        desc = f"0x{self.LOCATION_ID_CHARACTERISTIC_VALUE:02X}"
 
         for c in desc:
             value.append(dbus.Byte(c.encode()))
