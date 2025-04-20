@@ -21,6 +21,7 @@ class Module {
   final num _locationId; 
   ModuleType _moduleType = ModuleType.unknown;
   StatusType _status = StatusType.disconnected;
+  BluetoothDevice? _device;
 
   // Public
   bool isConnected = true;
@@ -31,7 +32,7 @@ class Module {
   };
 
   // Constructor
-  Module(this._serialNumber, this._moduleId, this._locationId, {BluetoothDevice? bleDevice}) {
+  Module(this._serialNumber, this._moduleId, this._locationId, [this._device]) {
     // Assign the module type based on the ID
     switch(_moduleId.split('-')[0]) {
       case 'TMP': _moduleType = ModuleType.temperature;

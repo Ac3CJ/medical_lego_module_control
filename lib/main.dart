@@ -437,28 +437,24 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                     onTap: () {
                                       bleController.connectToDevice(data.device);
-                                      print(bleController.currentDeviceId.value);
-                                      print(bleController.currentDeviceLocationId.value);
-                                      print(bleController.currentDeviceMacAddress.value);
 
                                       setState(() {
                                         switch(bleController.currentDeviceId.value.split('-')[0]) {
                                           case 'TMP': moduleManagers[ModuleType.temperature]?.addNewModule(Module(
                                             bleController.currentDeviceMacAddress.value, 
                                             bleController.currentDeviceId.value, 
-                                            int.parse(bleController.currentDeviceLocationId.value)));
+                                            int.parse(bleController.currentDeviceLocationId.value),
+                                            data.device));
                                           case 'IR': moduleManagers[ModuleType.infrared]?.addNewModule(Module(
                                             bleController.currentDeviceMacAddress.value, 
                                             bleController.currentDeviceId.value, 
-                                            int.parse(bleController.currentDeviceLocationId.value)));
+                                            int.parse(bleController.currentDeviceLocationId.value),
+                                            data.device));
                                           case 'VBR': moduleManagers[ModuleType.vibration]?.addNewModule(Module(
                                             bleController.currentDeviceMacAddress.value, 
                                             bleController.currentDeviceId.value, 
-                                            int.parse(bleController.currentDeviceLocationId.value)));
-                                          default: moduleManagers[ModuleType.unknown]?.addNewModule(Module(
-                                            bleController.currentDeviceMacAddress.value, 
-                                            bleController.currentDeviceId.value, 
-                                            int.parse(bleController.currentDeviceLocationId.value)));
+                                            int.parse(bleController.currentDeviceLocationId.value),
+                                            data.device));
                                         }
                                       });
                                     },
