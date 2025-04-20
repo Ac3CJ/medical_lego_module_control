@@ -6,7 +6,6 @@ import 'models/module_manager.dart';
 import 'models/module_type.dart';
 import 'models/bluetooth_service.dart';
 
-
 // MIGHT NEED TO MAKE THIS AN OBJECT TO PREVENT CONFUSION IN THE FUTURE
 // Debug Variables
 Map moduleMap = {
@@ -62,6 +61,7 @@ class _HomePageState extends State<HomePage> {
   late Map<ModuleType, ModuleManager> moduleManagers;
 
   // Initialise Bluetooth Services
+  late BleController bleController;
 
   @override
   void initState(){
@@ -77,10 +77,12 @@ class _HomePageState extends State<HomePage> {
     _initialiseDemoModules();
 
     // Bluetooth Services
+    bleController = BleController();
   }
 
   @override
   void dispose() {
+    bleController.dispose(); // Make sure to dispose the controller
     super.dispose();
   }
 
@@ -109,8 +111,6 @@ class _HomePageState extends State<HomePage> {
     moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-003', 0x02, 0x02));
     moduleManagers[ModuleType.vibration]?.addNewModule(Module('VBR-004', 0x02, 0x03));
   }
-
-  // Bluetooth Methods
 
   // Building the Widgets
   @override
@@ -142,7 +142,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildControlRow(int index) {
-    //final moduleType = ModuleType.values[index];
     ModuleManager? manager = moduleManagers[ModuleType.values[index]];
     return Container(
       padding: const EdgeInsets.all(16.0),
@@ -255,10 +254,6 @@ class _HomePageState extends State<HomePage> {
                 final modules = moduleManagers[type]?.allModules ?? [];
                 if (modules.isEmpty) return const SizedBox.shrink();
                 
-                //final typeIndex = ModuleType.values.indexOf(type);
-                //final currentIntensity = intensityValues[typeIndex];
-                //final currentTime = timeValues[typeIndex];
-                
                 return Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -341,7 +336,7 @@ class _HomePageState extends State<HomePage> {
       ),
       margin: const EdgeInsets.all(16),
       child: GetBuilder<BleController>(
-        init: BleController(),
+        init: bleController, // Use the class-level instance
         builder: (controller) {
           return Column(
             mainAxisSize: MainAxisSize.min,
@@ -440,9 +435,7 @@ class _HomePageState extends State<HomePage> {
                                         color: _getRssiColor(data.rssi),
                                       ),
                                     ),
-                                    onTap: () {
-                                      // Add device connection logic here
-                                    },
+                                    onTap: () => controller.connectToDevice(data.device),
                                   ),
                                 );
                               },

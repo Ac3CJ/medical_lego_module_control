@@ -9,7 +9,7 @@ class BleController extends GetxController{
   // FlutterBluePlus flutterBlue = FlutterBluePlus();
 
   // Filter for specific device names or service UUIDs
-  final List<String> _targetDevicePrefixes = ['TMP-', 'IR-', 'VBR-', 'CJ02-', 'LMTherapy-',];
+  final List<String> _targetDevicePrefixes = ['LM Health',];
   final List<Guid> _targetServiceUuids = [
     // Guid('0000180a-0000-1000-8000-00805f9b34fb'), // Common device info service
     // Guid('FFF6'), // Common Matter service
@@ -18,7 +18,14 @@ class BleController extends GetxController{
   ];
 
   // Getters
-  Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults;
+  Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults
+    .map((results) => results.where((result) {
+            final deviceName = result.device.platformName;
+            if (deviceName.isEmpty) return false;
+            
+            // Check if device name starts with any of the target prefixes
+            return _targetDevicePrefixes.any((prefix) => deviceName.startsWith(prefix));
+    }).toList());
 
   // Private Methods
   Future<void> _requestPermissions() async {
@@ -34,6 +41,21 @@ class BleController extends GetxController{
 
     FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
     //FlutterBluePlus.stopScan();
+  }
+
+  Future<void> connectToDevice(BluetoothDevice device) async{
+    await device.connect(timeout: Duration(seconds: 15));
+
+    device.connectionState.listen((isConnected) {
+      if (isConnected == BluetoothConnectionState.connected) {print('Device Connected to: ${device.platformName}');}
+      else {print('Device Disconnected');}
+    });
+  }
+
+  @override
+  void onClose() {
+    FlutterBluePlus.stopScan();
+    super.onClose();
   }
 }
 
