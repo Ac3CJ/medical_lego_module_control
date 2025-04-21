@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/state_manager.dart';
+import 'package:get/get.dart';
 import 'models/module.dart';
 import 'models/module_manager.dart';
 import 'models/module_type.dart';
@@ -50,14 +51,14 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  // Refresh Trigger
+  final _refreshTrigger = false.obs;
+
   // Create lists to hold the values for each row
   List<double> intensityValues = [50, 50, 50]; // Initial intensity values (0-100)
   List<double> timeValues = [5, 5, 5]; // Initial time values (0-10 minutes)
 
   // Initialise the Managers
-  late ModuleManager temperatureModuleManager;
-  late ModuleManager infraredModuleManager;
-  late ModuleManager vibrationModuleManager;
   late Map<ModuleType, ModuleManager> moduleManagers;
 
   // Initialise Bluetooth Services
@@ -246,76 +247,81 @@ class _HomePageState extends State<HomePage> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-            // Create a column for each module type
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: ModuleType.values.map((type) {
-                final modules = moduleManagers[type]?.allModules ?? [];
-                if (modules.isEmpty) return const SizedBox.shrink();
-                
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${type.toShortString().capitalise()} (${modules.length})',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        // Parse through each module
-                        ...modules.map((module) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      if (module.isConnected) {module.disconnect();}
-                                      else {module.connect();}
-                                    });
-                                  },
-                                  child: Text(
-                                    module.serialNumber,
-                                    style: TextStyle(
-                                      color: module.isConnected 
-                                          ? Colors.green 
-                                          : Colors.grey,
-                                    ),
-                                ),
-                                ),
-                                
-                                Text(
-                                  'Location: 0x${(module.locationId as int).toRadixString(16).toUpperCase().padLeft(2,'0')}',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                                Text(
-                                  'Intensity: ${module.moduleIntensity}%',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                                Text(
-                                  'Time: ${module.moduleTime} min',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ],
+            // Watch the refresh trigger to rebuild when needed
+            Obx(() {
+              // This dummy variable just forces the Obx to rebuild
+              final _ = _refreshTrigger.value;
+              
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: ModuleType.values.map((type) {
+                  final modules = moduleManagers[type]?.allModules ?? [];
+                  if (modules.isEmpty) return const SizedBox.shrink();
+                  
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${type.toShortString().capitalise()} (${modules.length})',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
                             ),
-                          );
-                        }),
-                      ],
+                          ),
+                          const SizedBox(height: 8),
+                          ...modules.map((module) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  GestureDetector(
+                                    onTap: () {
+                                      if (module.isConnected.value) {
+                                        module.disconnect();
+                                      } else {
+                                        module.connect();
+                                      }
+                                      _refreshTrigger.toggle(); // Trigger update
+                                    },
+                                    child: Obx(() => Text(
+                                      module.moduleId,
+                                      style: TextStyle(
+                                        color: module.isConnected.value 
+                                            ? Colors.green 
+                                            : Colors.grey,
+                                      ),
+                                    )),
+                                  ),
+                                  Text(
+                                    'Location: 0x${(module.locationId as int).toRadixString(16).toUpperCase().padLeft(2,'0')}',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                  Text(
+                                    'Intensity: ${module.targetIntensity}%',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                  Text(
+                                    'Time: ${module.targetTime} min',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              }).toList(),
-          ),
-        ],
-      ),
+                  );
+                }).toList(),
+              );
+            }),
+          ],
+        ),
       ),
     );
   }
@@ -435,28 +441,32 @@ class _HomePageState extends State<HomePage> {
                                         color: _getRssiColor(data.rssi),
                                       ),
                                     ),
-                                    onTap: () {
-                                      bleController.connectToDevice(data.device);
-
-                                      setState(() {
-                                        switch(bleController.currentDeviceId.value.split('-')[0]) {
-                                          case 'TMP': moduleManagers[ModuleType.temperature]?.addNewModule(Module(
-                                            bleController.currentDeviceMacAddress.value, 
-                                            bleController.currentDeviceId.value, 
-                                            int.parse(bleController.currentDeviceLocationId.value),
-                                            data.device));
-                                          case 'IR': moduleManagers[ModuleType.infrared]?.addNewModule(Module(
-                                            bleController.currentDeviceMacAddress.value, 
-                                            bleController.currentDeviceId.value, 
-                                            int.parse(bleController.currentDeviceLocationId.value),
-                                            data.device));
-                                          case 'VBR': moduleManagers[ModuleType.vibration]?.addNewModule(Module(
-                                            bleController.currentDeviceMacAddress.value, 
-                                            bleController.currentDeviceId.value, 
-                                            int.parse(bleController.currentDeviceLocationId.value),
-                                            data.device));
+                                    onTap: () async {
+                                      bleController.connectToDevice(data.device); // When this connects, it returns so the rest of the code is not run
+                                      // Get the updated values from the controller
+                                      final deviceId = bleController.currentDeviceId.value;
+                                      final macAddress = bleController.currentDeviceMacAddress.value;
+                                      final locationId = bleController.currentDeviceLocationId.value;
+                                      
+                                      if (deviceId.isNotEmpty && macAddress.isNotEmpty && locationId.isNotEmpty) {
+                                        final moduleType = deviceId.split('-')[0];
+                                        final location = int.tryParse(locationId) ?? 0;
+                                        
+                                        switch(moduleType) {
+                                          case 'TMP': 
+                                            moduleManagers[ModuleType.temperature]?.addNewModule(
+                                              Module(macAddress, deviceId, location, data.device));
+                                          case 'IR': 
+                                            moduleManagers[ModuleType.infrared]?.addNewModule(
+                                              Module(macAddress, deviceId, location, data.device));
+                                          case 'VBR': 
+                                            moduleManagers[ModuleType.vibration]?.addNewModule(
+                                              Module(macAddress, deviceId, location, data.device));
                                         }
-                                      });
+
+                                        // Trigger Refresh
+                                        _refreshTrigger.toggle();
+                                      }
                                     },
                                   ),
                                 );

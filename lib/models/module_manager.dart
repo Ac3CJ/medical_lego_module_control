@@ -10,20 +10,19 @@ class ModuleManager {
   ModuleType _managerType;
 
   // Public
-  Map moduleCommand = {
-    'intensity': 0,
-    'time': 0
-  };
+  double moduleIntensity = 0;
+  double moduleTime = 0;
+
+  // double targetIntensity = 0;
+  // double targetTime = 0;
 
   // Constructor
   ModuleManager(this._managerType);
 
   // Getters
   List<Module> get allModules => List.from(_modules);
-  List<Module> get connectedModules => _modules.where((module) => module.isConnected).toList();
+  List<Module> get connectedModules => _modules.where((module) => module.isConnected.value).toList();
   ModuleType get managerType => _managerType;
-  num get moduleIntensity => moduleCommand['intensity'];
-  num get moduleTime => moduleCommand['time'];
 
   // Public Methods
   void addNewModule(Module newModule) {
@@ -53,18 +52,21 @@ class ModuleManager {
   }
 
   void sendCommandToAll(double targetIntensity, double targetTime) {
-    moduleCommand = {'intensity': targetIntensity, 'time': targetTime};
+    moduleIntensity = targetIntensity;
+    moduleTime = targetTime;
     for (var module in connectedModules) {
-      module.sendCommand(moduleCommand);
+      module.sendCommand(targetIntensity, targetTime);
     }
   }
 
-  void sendCommandToModule(String serialNumber, Map command) {
+  void sendCommandToModule(String serialNumber, double targetIntensity, double targetTime) {
+    moduleIntensity = targetIntensity;
+    moduleTime = targetTime;
     final module = _modules.firstWhere(
       (m) => m.serialNumber == serialNumber,
       orElse: () => throw Exception('Module not found'),
     );
-    module.sendCommand(command);
+    module.sendCommand(targetIntensity, targetTime);
   }
 
   void printAllModules() {
