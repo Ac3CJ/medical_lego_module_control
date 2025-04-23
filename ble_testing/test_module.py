@@ -36,8 +36,6 @@ Found From: https://github.com/Douglas6/cputemp/blob/master/cputemp.py
 
 """
 
-# ADD A NEW PARAMETER TO CHECK WHEN A NEW THERAPY IS BEING DONE TO STOP THE ISSUE OF THERAPY NDING WHEN A SHORTER DURATION IS PICKED
-
 # Bluetooth Related
 import dbus
 from advertisement import Advertisement
@@ -165,6 +163,7 @@ class TherapyService(Service):
     def __init__(self, index):
         self.intensity = 0
         self.elapsedTime = 0
+        self.startTime = 0
         self.targetTime = 0
         self.isTherapyActive = False
 
@@ -179,6 +178,9 @@ class TherapyService(Service):
     # Setters
     def setElapsedTime(self, elapsedTime):
         self.elapsedTime = elapsedTime
+
+    def setStartTime(self, startTime):
+        self.startTime = startTime
         
     def setIntensity(self, intensity):
         self.intensity = intensity
@@ -192,6 +194,9 @@ class TherapyService(Service):
     # Getters
     def getElapsedTime(self):
         return self.elapsedTime
+    
+    def getStartTime(self):
+        return self.startTime
 
     def getIntensity(self):
         return self.intensity
@@ -224,8 +229,9 @@ class TimeCharacteristic(Characteristic):
     def reset_loop(self):
         while True:
             time.sleep(1)
-            if not (self.service):
-                self.startTime = time.time()
+
+            self.startTime = self.service.getStartTime()
+
             elapsedTime = time.time() - self.startTime
             targetTime = self.service.getTargetTime()
 
@@ -261,8 +267,10 @@ class TimeCharacteristic(Characteristic):
         if (not self.service.getIsTherapyActive()):
             moduleTime = 0
             self.startTime = time.time()
+            self.service.setStartTime(self.startTime)
             self.service.setElapsedTime(moduleTime)
 
+        self.service.setStartTime(self.startTime)
         self.service.setElapsedTime(moduleTime)
 
         # Convert to Byte String
@@ -374,6 +382,7 @@ class IntensityCharacteristic(Characteristic):
             if (self.service.getTargetTime() > 0):
                 self.service.setIsTherapyActive(True)
                 self.service.setElapsedTime(0)
+                self.service.setStartTime(time.time())
                 print(f"{bcolors.OKGREEN}[INFO] Therapy Started{bcolors.ENDC}")
             else:
                 print(f"{bcolors.WARNING}[INFO] Awaiting Therapy Target Time{bcolors.ENDC}")
@@ -464,8 +473,9 @@ class TargetTimeCharacteristic(Characteristic):
             # Check to make sure Therapy doesn't start prematurely
             if (self.service.getIntensity() > 0):
                 self.service.setIsTherapyActive(True)
-                print(f"{bcolors.OKGREEN}[INFO] Therapy Started{bcolors.ENDC}")
                 self.service.setElapsedTime(0)
+                self.service.setStartTime(time.time())
+                print(f"{bcolors.OKGREEN}[INFO] Therapy Started{bcolors.ENDC}")
             else:
                 print(f"{bcolors.WARNING}[INFO] Awaiting Therapy Intensity{bcolors.ENDC}")
 
