@@ -5,6 +5,8 @@ import 'dart:convert';
 import 'dart:async';
 import 'module_type.dart';
 
+// FIND A WAY TO MAKE IT SO THAT MODULES CAN DISCONNECT AND RECONNECT, FINDING OUT WHEN IT HAPPENS
+
 // Module Status is held as a binary value
 // 0x00 -> Off
 // 0x01 -> Inactive

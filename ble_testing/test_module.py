@@ -36,12 +36,15 @@ Found From: https://github.com/Douglas6/cputemp/blob/master/cputemp.py
 
 """
 
+# ADD A NEW PARAMETER TO CHECK WHEN A NEW THERAPY IS BEING DONE TO STOP THE ISSUE OF THERAPY NDING WHEN A SHORTER DURATION IS PICKED
+
 # Bluetooth Related
 import dbus
 from advertisement import Advertisement
 from service import Application, Service, Characteristic, Descriptor
 
 # Functionality 
+import sys
 import time
 import threading
 
@@ -58,6 +61,26 @@ class bcolors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
+
+# =============================================== HELPER FUNCTIONS ===============================================
+def print_progress_bar(iteration, total, prefix='', suffix='', length=30, fill='█'):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        length      - Optional  : character length of bar (Int)
+        fill        - Optional  : bar fill character (Str)
+    """
+    percent = ("{0:.1f}").format(100 * (iteration / float(total)))
+    filled_length = int(length * iteration // total)
+    bar = fill * filled_length + '-' * (length - filled_length)
+    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end='\r')
+    # Print New Line on Complete
+    if iteration == total: 
+        print()
 
 # ===============================================================================================================
 # =============================================== ADVERTISEMENT =================================================
@@ -79,7 +102,7 @@ class InfoService(Service):
 
     def __init__(self, index):
         self.intensity = 0
-        self.timeElapsed = 0
+        self.elapsedTime = 0
         self.targetTime = 0
         self.isTherapyActive = False
 
@@ -141,7 +164,7 @@ class TherapyService(Service):
 
     def __init__(self, index):
         self.intensity = 0
-        self.timeElapsed = 0
+        self.elapsedTime = 0
         self.targetTime = 0
         self.isTherapyActive = False
 
@@ -154,8 +177,8 @@ class TherapyService(Service):
         self.add_characteristic(StatusCharacteristic(self))
 
     # Setters
-    def setTimeElapsed(self, timeElapsed):
-        self.timeElapsed = timeElapsed
+    def setElapsedTime(self, elapsedTime):
+        self.elapsedTime = elapsedTime
         
     def setIntensity(self, intensity):
         self.intensity = intensity
@@ -167,8 +190,8 @@ class TherapyService(Service):
         self.isTherapyActive = isTherapyActive
 
     # Getters
-    def getTimeElapsed(self):
-        return self.timeElapsed
+    def getElapsedTime(self):
+        return self.elapsedTime
 
     def getIntensity(self):
         return self.intensity
@@ -201,20 +224,35 @@ class TimeCharacteristic(Characteristic):
     def reset_loop(self):
         while True:
             time.sleep(1)
-            if ((time.time() - self.startTime) >= self.service.getTargetTime()) and (self.service.getIsTherapyActive()):
-                print(f"{bcolors.HEADER}[INFO] Resetting intensity and timeElapsed after {self.service.getTargetTime()}s of inactivity.{bcolors.ENDC}")
-
-                # Reset Other Characteristics
-                self.service.setIntensity(0)
-                self.service.setTargetTime(0)
-                self.service.setIsTherapyActive(False)
-
-                # Reset Local Vars
-                self.timeElapsed = 0
-                self.targetTime = 0
+            if not (self.service):
                 self.startTime = time.time()
+            elapsedTime = time.time() - self.startTime
+            targetTime = self.service.getTargetTime()
 
-    def getTimeElapsed(self):
+            if (self.service.getIsTherapyActive()):
+                if targetTime > 0:
+                    print_progress_bar(
+                        min(elapsedTime, targetTime),
+                        targetTime,
+                        prefix='Therapy Progress:',
+                        suffix=f'Elapsed: {int(elapsedTime)}s / Target: {targetTime}s',
+                        length=40
+                    )
+                
+                # Check if therapy time is complete
+                if elapsedTime >= targetTime:
+                    print(f"\n{bcolors.HEADER}[INFO] Therapy session completed after {targetTime}s{bcolors.ENDC}")
+
+                    # Reset Other Characteristics
+                    self.service.setIntensity(0)
+                    self.service.setTargetTime(0)
+                    self.service.setIsTherapyActive(False)
+
+                    # Reset Local Vars
+                    self.moduleTime = 0
+                    self.startTime = time.time()
+
+    def getElapsedTime(self):
         value = []
         currentTime = time.time()
 
@@ -223,9 +261,9 @@ class TimeCharacteristic(Characteristic):
         if (not self.service.getIsTherapyActive()):
             moduleTime = 0
             self.startTime = time.time()
-            self.service.setTimeElapsed(moduleTime)
+            self.service.setElapsedTime(moduleTime)
 
-        self.service.setTimeElapsed(moduleTime)
+        self.service.setElapsedTime(moduleTime)
 
         # Convert to Byte String
         strModuleTime = str(moduleTime)
@@ -235,7 +273,7 @@ class TimeCharacteristic(Characteristic):
 
     def setTimeElapsedCallback(self):
         if self.notifying:
-            value = self.getTimeElapsed()
+            value = self.getElapsedTime()
             self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
         return self.notifying
 
@@ -245,7 +283,7 @@ class TimeCharacteristic(Characteristic):
 
         self.notifying = True
 
-        value = self.getTimeElapsed()
+        value = self.getElapsedTime()
         self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
         self.add_timeout(NOTIFY_TIMEOUT, self.setTimeElapsedCallback)
 
@@ -253,7 +291,7 @@ class TimeCharacteristic(Characteristic):
         self.notifying = False
 
     def ReadValue(self, options):
-        value = self.getTimeElapsed()
+        value = self.getElapsedTime()
         return value
 
 class TimeDescriptor(Descriptor):
@@ -335,6 +373,7 @@ class IntensityCharacteristic(Characteristic):
             # Check to make sure Therapy doesn't start prematurely
             if (self.service.getTargetTime() > 0):
                 self.service.setIsTherapyActive(True)
+                self.service.setElapsedTime(0)
                 print(f"{bcolors.OKGREEN}[INFO] Therapy Started{bcolors.ENDC}")
             else:
                 print(f"{bcolors.WARNING}[INFO] Awaiting Therapy Target Time{bcolors.ENDC}")
@@ -426,6 +465,7 @@ class TargetTimeCharacteristic(Characteristic):
             if (self.service.getIntensity() > 0):
                 self.service.setIsTherapyActive(True)
                 print(f"{bcolors.OKGREEN}[INFO] Therapy Started{bcolors.ENDC}")
+                self.service.setElapsedTime(0)
             else:
                 print(f"{bcolors.WARNING}[INFO] Awaiting Therapy Intensity{bcolors.ENDC}")
 

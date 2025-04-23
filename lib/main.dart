@@ -284,14 +284,11 @@ class _HomePageState extends State<HomePage> {
                                   GestureDetector(
                                     onTap: () {
                                       if (module.isConnected.value) {
-                                        //module.disconnect();
-                                        print('DISCONNECTING MODULE');
+                                        module.disconnect();
                                       } else {
                                         module.connect();
                                       }
                                       _refreshTrigger.toggle(); // Trigger update
-                                      print('MODULE INTENSITY: ${module.moduleIntensity.value}');
-                                      print('MODULE TARGET TIME: ${module.moduleTime.value}');
                                     },
                                     child: Obx(() => Text(
                                       module.moduleId,
