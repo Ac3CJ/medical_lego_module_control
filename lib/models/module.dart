@@ -2,6 +2,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
 import 'dart:typed_data';
 import 'dart:convert';
+import 'dart:async';
 import 'module_type.dart';
 
 // Module Status is held as a binary value
@@ -33,12 +34,37 @@ class Module {
   // Public
   RxBool isConnected = false.obs;
   List<String> connectedDevices = [];
-  double targetIntensity = 0;
-  double targetTime = 0;
-  Map moduleCommand = {
-    'intensity': 0,
-    'time': 0
-  };
+  RxDouble targetIntensity = 0.0.obs;
+  RxDouble targetTime = 0.0.obs;
+  RxDouble elapsedTime = 0.0.obs;
+
+  // Getters
+  String get moduleId => _moduleId;
+  String get serialNumber => _serialNumber;
+  ModuleType get moduleType => _moduleType;
+  StatusType get moduleStatus => _status;
+  num get locationId => _locationId;
+
+  RxDouble get moduleIntensity {
+    if (_isBle) {return _bleManager!.intensityValue;}
+    return targetIntensity.value.obs;
+  }
+
+  RxDouble get moduleTime {
+    if (_isBle) {return _bleManager!.targetTimeValue;}
+    return (targetIntensity.value).obs;  
+  }
+
+  RxInt get moduleElapsedTime {
+    if (_isBle) {
+      double lastValue = 0;
+
+      _bleManager!.getTimeElapsed().listen((elapsedTimeValue) {lastValue = elapsedTimeValue;});
+      //print('READING ELAPSED TIME: $lastValue');
+      return lastValue.toInt().obs;
+    }
+    return elapsedTime.value.toInt().obs;  
+  }
 
   // Constructor
   Module(this._serialNumber, this._moduleId, this._locationId, [this._device]) {
@@ -54,15 +80,6 @@ class Module {
       _bleManager = BleServiceManager(_device!);
     }
   }
-
-  // Getters
-  String get moduleId => _moduleId;
-  String get serialNumber => _serialNumber;
-  ModuleType get moduleType => _moduleType;
-  StatusType get moduleStatus => _status;
-  num get locationId => _locationId;
-  num get moduleIntensity => moduleCommand['intensity'];
-  num get moduleTime => moduleCommand['time'];
 
   // Private Methods
   /*void updateStatus(num newStatus) {
@@ -103,19 +120,20 @@ class Module {
     await _device?.disconnect();
   }
 
-  void sendCommand(double targetIntensity, double targetTime) async{
+  void sendCommand(double intensity, double targetT) async{
     if (!isConnected.value) {
       throw Exception('Cannot send command to disconnected module');
     }
 
-    this.targetIntensity = targetIntensity;
-    this.targetTime = targetTime;
+    targetIntensity.value = intensity;
+    targetTime.value = targetT;
 
-    _bleManager?.setIntensity(targetIntensity.toInt());
-    _bleManager?.setTargetTime((targetTime.toInt())*60); // TARGET TIME IS READ IN MINUTES
+    _bleManager?.setIntensity(intensity.toInt());
+    _bleManager?.setTargetTime(((targetT*60).toInt())); // TARGET TIME IS READ IN MINUTES
 
+    _bleManager?.refreshValues();
     _status = StatusType.active;
-    print('MAC: $_serialNumber\tModule ID: $_moduleId\tIntensity: ${targetIntensity.toString()}\tTarget Time: ${targetTime.toString()}');
+    print('MAC: $_serialNumber\tModule ID: $_moduleId\tIntensity: ${intensity.toString()}\tTarget Time: ${targetT.toString()}');
   }
 
   void addConnection(String deviceSerialNumber) {
@@ -148,7 +166,16 @@ class BleServiceManager {
 
   BluetoothDevice device;
   
+  RxDouble intensityValue = 0.0.obs;
+  RxDouble targetTimeValue = 0.0.obs;
+  RxDouble elapsedTimeValue = 0.0.obs;
+
   BleServiceManager(this.device);
+
+  Future<void> refreshValues() async {
+    intensityValue.value = (await getIntensity());
+    targetTimeValue.value = (await getTargetTime());
+  }
 
   // Helper Methods
   int _readInt32(List<int> bytes) {
@@ -176,14 +203,16 @@ class BleServiceManager {
   }
 
   // Therapy Control Service Methods
-  Stream<int> getTimeElapsed() {
+  Stream<double> getTimeElapsed() {
     return _setupNotification(timeElapsedChar, therapyControlService)
-        .map((data) => _readInt32(data));
+        .map((data) => double.parse(_decodeUtf8(data)));
   }
 
-  Future<int> getIntensity() async {
+  Future<double> getIntensity() async {
     final data = await _readCharacteristic(intensityChar, therapyControlService);
-    return _readUint8(data);
+    final value = double.parse(_decodeUtf8(data));
+    intensityValue = value.obs;
+    return value;
   }
 
   Future<void> setIntensity(int percentage) async {
@@ -195,9 +224,11 @@ class BleServiceManager {
     await _writeCharacteristic(intensityChar, therapyControlService, bytes);
   }
 
-  Future<int> getTargetTime() async {
+  Future<double> getTargetTime() async {
     final data = await _readCharacteristic(targetTimeChar, therapyControlService);
-    return _readInt32(data);
+    final value = (double.parse(_decodeUtf8(data)))/60; // CONVERT SECONDS TO MINUTES
+    targetTimeValue = value.obs;
+    return value;
   }
 
   Future<void> setTargetTime(int seconds) async {

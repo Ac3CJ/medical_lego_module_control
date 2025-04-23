@@ -216,7 +216,6 @@ class TimeCharacteristic(Characteristic):
 
     def getTimeElapsed(self):
         value = []
-        unit = "Seconds"
         currentTime = time.time()
 
         moduleTime = round(currentTime - self.startTime)
@@ -224,11 +223,12 @@ class TimeCharacteristic(Characteristic):
         if (not self.service.getIsTherapyActive()):
             moduleTime = 0
             self.startTime = time.time()
+            self.service.setTimeElapsed(moduleTime)
 
         self.service.setTimeElapsed(moduleTime)
 
         # Convert to Byte String
-        strModuleTime = str(moduleTime) + " " + unit
+        strModuleTime = str(moduleTime)
         for c in strModuleTime:
             value.append(dbus.Byte(c.encode()))
         return value
@@ -258,7 +258,7 @@ class TimeCharacteristic(Characteristic):
 
 class TimeDescriptor(Descriptor):
     TIME_DESCRIPTOR_UUID = "2901"
-    TIME_DESCRIPTOR_VALUE = "Time Elapsed"
+    TIME_DESCRIPTOR_VALUE = "Time Elapsed (Seconds)"
 
     def __init__(self, characteristic):
         Descriptor.__init__(
@@ -291,7 +291,7 @@ class IntensityCharacteristic(Characteristic):
 
     def getIntensity(self):
         value = []
-        strValue = str(self.intensity) + "%"
+        strValue = str(self.intensity)
         for c in strValue:
             value.append(dbus.Byte(c.encode()))
         return value
@@ -348,7 +348,7 @@ class IntensityCharacteristic(Characteristic):
 
 class IntensityDescriptor(Descriptor):
     INTENSITY_DESCRIPTOR_UUID = "2901"
-    INTENSITY_DESCRIPTOR_VALUE = "Intensity"
+    INTENSITY_DESCRIPTOR_VALUE = "Intensity (%)"
 
     def __init__(self, characteristic):
         Descriptor.__init__(
@@ -381,7 +381,7 @@ class TargetTimeCharacteristic(Characteristic):
 
     def getTargetTime(self):
         value = []
-        strValue = str(self.targetTime) + " Seconds"
+        strValue = str(self.targetTime)
         for c in strValue:
             value.append(dbus.Byte(c.encode()))
         return value
@@ -438,7 +438,7 @@ class TargetTimeCharacteristic(Characteristic):
 
 class TargetTimeDescriptor(Descriptor):
     TARGET_TIME_DESCRIPTOR_UUID = "2901"
-    TARGET_TIME_DESCRIPTOR_VALUE = "Target Time"
+    TARGET_TIME_DESCRIPTOR_VALUE = "Target Time (Seconds)"
 
     def __init__(self, characteristic):
         Descriptor.__init__(

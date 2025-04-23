@@ -75,25 +75,45 @@ class BleController extends GetxController {
     FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
   }
 
-  Future<void> connectToDevice(BluetoothDevice device) async {
-    try {
-      //await device.connect(timeout: Duration(seconds: 15));
-      await device.connect();
+Future<void> connectToDevice(BluetoothDevice device) async {
+  try {
+    // Create a completer to wait for the full connection process
+    final completer = Completer<void>();
+    
+    await device.connect();
 
-      _currentDeviceMacAddress.value = device.remoteId.str;
+    _currentDeviceMacAddress.value = device.remoteId.str;
 
-      device.connectionState.listen((state) async {
-        if (state == BluetoothConnectionState.connected) {
-          print('Device Connected to: ${device.platformName}');
+    device.connectionState.listen((state) async {
+      if (state == BluetoothConnectionState.connected) {
+        print('Device Connected to: ${device.platformName}');
+        try {
           await _fetchDeviceInformation(device);
-        } else {
-          print('Device Disconnected');
+          completer.complete(); // Only complete when everything is done
+        } catch (e) {
+          completer.completeError(e);
         }
-      });
-    } catch (e) {
-      print('Connection error: $e');
-    }
+      } else {
+        print('Device Disconnected');
+        // You might want to handle disconnection during connection attempt
+        if (!completer.isCompleted) {
+          completer.completeError(Exception('Disconnected during connection'));
+        }
+      }
+    });
+
+    // Wait for either the connection to complete or timeout
+    return completer.future.timeout(Duration(seconds: 15), onTimeout: () {
+      if (!completer.isCompleted) {
+        completer.completeError(Exception('Connection timed out'));
+      }
+      throw Exception('Connection timed out');
+    });
+  } catch (e) {
+    print('Connection error: $e');
+    rethrow; // Important to rethrow so the caller knows about the error
   }
+}
 
   @override
   void onClose() {

@@ -79,6 +79,7 @@ class _HomePageState extends State<HomePage> {
 
     // Bluetooth Services
     bleController = BleController();
+    bleController.scanDevices();
   }
 
   @override
@@ -97,7 +98,7 @@ class _HomePageState extends State<HomePage> {
     
     return managers;
   }
-
+  /*
   void _initialiseDemoModules() {
     moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'TMP-001', 0x00));
     moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'TMP-002', 0x01));
@@ -112,6 +113,7 @@ class _HomePageState extends State<HomePage> {
     moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'VBR-003', 0x02));
     moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'VBR-004', 0x03));
   }
+  */
 
   // Building the Widgets
   @override
@@ -282,11 +284,14 @@ class _HomePageState extends State<HomePage> {
                                   GestureDetector(
                                     onTap: () {
                                       if (module.isConnected.value) {
-                                        module.disconnect();
+                                        //module.disconnect();
+                                        print('DISCONNECTING MODULE');
                                       } else {
                                         module.connect();
                                       }
                                       _refreshTrigger.toggle(); // Trigger update
+                                      print('MODULE INTENSITY: ${module.moduleIntensity.value}');
+                                      print('MODULE TARGET TIME: ${module.moduleTime.value}');
                                     },
                                     child: Obx(() => Text(
                                       module.moduleId,
@@ -301,14 +306,18 @@ class _HomePageState extends State<HomePage> {
                                     'Location: 0x${(module.locationId as int).toRadixString(16).toUpperCase().padLeft(2,'0')}',
                                     style: const TextStyle(fontSize: 12),
                                   ),
-                                  Text(
-                                    'Intensity: ${module.targetIntensity}%',
+                                  Obx(() => Text(
+                                    'Intensity: ${module.moduleIntensity.value}%',
                                     style: const TextStyle(fontSize: 12),
-                                  ),
-                                  Text(
-                                    'Time: ${module.targetTime} min',
+                                  )),
+                                  Obx(() => Text(
+                                    'Target Time: ${module.moduleTime.value} min',
                                     style: const TextStyle(fontSize: 12),
-                                  ),
+                                  )),
+                                  Obx(() => Text(
+                                    'Time Elapsed: ${module.moduleElapsedTime.value} Seconds',
+                                    style: const TextStyle(fontSize: 12),
+                                  )),
                                 ],
                               ),
                             );
@@ -442,7 +451,7 @@ class _HomePageState extends State<HomePage> {
                                       ),
                                     ),
                                     onTap: () async {
-                                      bleController.connectToDevice(data.device); // When this connects, it returns so the rest of the code is not run
+                                      await bleController.connectToDevice(data.device);
                                       // Get the updated values from the controller
                                       final deviceId = bleController.currentDeviceId.value;
                                       final macAddress = bleController.currentDeviceMacAddress.value;
@@ -463,7 +472,6 @@ class _HomePageState extends State<HomePage> {
                                             moduleManagers[ModuleType.vibration]?.addNewModule(
                                               Module(macAddress, deviceId, location, data.device));
                                         }
-
                                         // Trigger Refresh
                                         _refreshTrigger.toggle();
                                       }
