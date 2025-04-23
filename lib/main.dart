@@ -312,7 +312,7 @@ class _HomePageState extends State<HomePage> {
                                     style: const TextStyle(fontSize: 12),
                                   )),
                                   Obx(() => Text(
-                                    'Time Elapsed: ${module.moduleElapsedTime.value} Seconds',
+                                    'Time Elapsed: ${module.moduleElapsedTime.value.toInt()} Seconds',
                                     style: const TextStyle(fontSize: 12),
                                   )),
                                 ],

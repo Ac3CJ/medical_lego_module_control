@@ -57,15 +57,9 @@ class Module {
     return (targetIntensity.value).obs;  
   }
 
-  RxInt get moduleElapsedTime {
-    if (_isBle) {
-      double lastValue = 0;
-
-      _bleManager!.getTimeElapsed().listen((elapsedTimeValue) {lastValue = elapsedTimeValue;});
-      //print('READING ELAPSED TIME: $lastValue');
-      return lastValue.toInt().obs;
-    }
-    return elapsedTime.value.toInt().obs;  
+  RxDouble get moduleElapsedTime {
+    if (_isBle) {return _bleManager!.elapsedTimeValue;}
+    return elapsedTime.value.obs;  
   }
 
   // Constructor
@@ -172,30 +166,55 @@ class BleServiceManager {
   RxDouble targetTimeValue = 0.0.obs;
   RxDouble elapsedTimeValue = 0.0.obs;
 
-  BleServiceManager(this.device);
+  // Stream subscriptions
+  StreamSubscription<String>? _statusSubscription;
+  StreamSubscription<double>? _elapsedTimeSubscription;
+
+  BleServiceManager(this.device) {
+    _initStatusMonitoring();
+  }
+
+  void dispose() {
+    _statusSubscription?.cancel();
+    _elapsedTimeSubscription?.cancel();
+  }
+
+  void _initStatusMonitoring() {
+    _statusSubscription = getStatus().listen((status) {
+      // Handle status changes
+      if (status == 'Active') {
+        _startElapsedTimeMonitoring();
+      } else {
+        _stopElapsedTimeMonitoring();
+      }
+    }, onError: (error) {
+      print('Error in status stream: $error');
+    });
+  }
 
   Future<void> refreshValues() async {
     intensityValue.value = (await getIntensity());
     targetTimeValue.value = (await getTargetTime());
   }
 
-  // Helper Methods
-  int _readInt32(List<int> bytes) {
-    final byteData = ByteData.sublistView(Uint8List.fromList(bytes));
-    return byteData.getInt32(0, Endian.little);
+    void _startElapsedTimeMonitoring() {
+    _elapsedTimeSubscription?.cancel(); // Cancel any existing subscription
+    
+    _elapsedTimeSubscription = getTimeElapsed().listen((time) {
+      print('[TEST] CURRENT TIME IS: $time');
+      elapsedTimeValue.value = time;
+    }, onError: (error) {
+      print('Error in elapsed time stream: $error');
+    });
   }
 
-  int _readUint8(List<int> bytes) {
-    return bytes[0];
+  void _stopElapsedTimeMonitoring() {
+    _elapsedTimeSubscription?.cancel();
+    _elapsedTimeSubscription = null;
+    elapsedTimeValue.value = 0.0; // Reset elapsed time when not active
   }
 
-  List<int> _writeInt32(int value) {
-    final byteData = ByteData(4);
-    byteData.setInt32(0, value, Endian.little);
-    return byteData.buffer.asUint8List().toList();
-  }
-
-  // UTF-8 String helper methods
+  // UTF-8 String Helper Methods
   String _decodeUtf8(List<int> bytes) {
     return utf8.decode(bytes, allowMalformed: true);
   }
