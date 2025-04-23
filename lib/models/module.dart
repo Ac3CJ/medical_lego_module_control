@@ -149,6 +149,7 @@ class Module {
 }
 
 class BleServiceManager {
+  // Services
   static final therapyControlService = Guid('00000001-710e-4a5b-8d75-3e5b444bc3cf');
   static final moduleInfoService = Guid('00000011-710e-4a5b-8d75-3e5b444bc3cf');
   
@@ -170,6 +171,9 @@ class BleServiceManager {
   StreamSubscription<String>? _statusSubscription;
   StreamSubscription<double>? _elapsedTimeSubscription;
 
+  // Private
+  bool _isTherapyActive = false;
+
   BleServiceManager(this.device) {
     _initStatusMonitoring();
   }
@@ -183,8 +187,11 @@ class BleServiceManager {
     _statusSubscription = getStatus().listen((status) {
       // Handle status changes
       if (status == 'Active') {
+        print('MODULE STATUS ACTIVE');
         _startElapsedTimeMonitoring();
+        _isTherapyActive = true;
       } else {
+        print('MODULE STATUS INACTIVE');
         _stopElapsedTimeMonitoring();
       }
     }, onError: (error) {
@@ -198,10 +205,11 @@ class BleServiceManager {
   }
 
     void _startElapsedTimeMonitoring() {
-    _elapsedTimeSubscription?.cancel(); // Cancel any existing subscription
+    if (!_isTherapyActive) {_elapsedTimeSubscription?.cancel();} // Cancel any existing subscription
     
+    print('MODULE TIME ELAPSED READING');
     _elapsedTimeSubscription = getTimeElapsed().listen((time) {
-      print('[TEST] CURRENT TIME IS: $time');
+      print('MODULE TIME: $time');
       elapsedTimeValue.value = time;
     }, onError: (error) {
       print('Error in elapsed time stream: $error');
@@ -212,6 +220,7 @@ class BleServiceManager {
     _elapsedTimeSubscription?.cancel();
     _elapsedTimeSubscription = null;
     elapsedTimeValue.value = 0.0; // Reset elapsed time when not active
+    _isTherapyActive = false;
   }
 
   // UTF-8 String Helper Methods
