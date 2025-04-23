@@ -78,7 +78,7 @@ def print_progress_bar(iteration, total, prefix='', suffix='', length=30, fill='
     print(f'\r{prefix} |{bar}| {percent}% {suffix}', end='\r')
     # Print New Line on Complete
     if iteration == total: 
-        print()
+        print()    
 
 # ===============================================================================================================
 # =============================================== ADVERTISEMENT =================================================
@@ -558,7 +558,6 @@ class StatusCharacteristic(Characteristic):
     
 
 # =============================================== MAIN CODE ===============================================
-
 app = Application()
 app.add_service(TherapyService(0))
 app.add_service(InfoService(1))
@@ -571,3 +570,4 @@ try:
     app.run()
 except KeyboardInterrupt:
     app.quit()
+    print("Terminating Application")

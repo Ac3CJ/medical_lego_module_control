@@ -17,6 +17,9 @@ class BleController extends GetxController {
   RxString _currentDeviceLocationId = ''.obs;
   RxString _currentDeviceMacAddress = ''.obs;
 
+  // Streams
+  StreamSubscription<BluetoothConnectionState>? _currentDeviceConnectionState;
+
   // Getters
   Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults.map(
     (results) => results.where((result) {
@@ -84,11 +87,13 @@ Future<void> connectToDevice(BluetoothDevice device) async {
 
     _currentDeviceMacAddress.value = device.remoteId.str;
 
-    device.connectionState.listen((state) async {
+    _currentDeviceConnectionState = device.connectionState.listen((state) async {
       if (state == BluetoothConnectionState.connected) {
         print('Device Connected to: ${device.platformName}');
         try {
           await _fetchDeviceInformation(device);
+          await _currentDeviceConnectionState?.cancel(); // Cancel the subscription for handover to Module class
+          _currentDeviceConnectionState = null;
           completer.complete(); // Only complete when everything is done
         } catch (e) {
           completer.completeError(e);
@@ -114,6 +119,11 @@ Future<void> connectToDevice(BluetoothDevice device) async {
     rethrow; // Important to rethrow so the caller knows about the error
   }
 }
+
+  void cancelConnectionStateSubscription() {
+    _currentDeviceConnectionState?.cancel();
+    _currentDeviceConnectionState = null;
+  }
 
   @override
   void onClose() {

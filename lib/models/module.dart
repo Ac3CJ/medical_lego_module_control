@@ -1,6 +1,6 @@
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
-import 'dart:typed_data';
+//import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:async';
 import 'module_type.dart';
@@ -32,6 +32,7 @@ class Module {
 
   BluetoothDevice? _device;
   BleServiceManager? _bleManager;
+  StreamSubscription<BluetoothConnectionState>? _deviceConnectionState;
 
   // Public
   RxBool isConnected = false.obs;
@@ -48,17 +49,26 @@ class Module {
   num get locationId => _locationId;
 
   RxDouble get moduleIntensity {
-    if (_isBle) {return _bleManager!.intensityValue;}
+    if (_isBle) {
+      if (_bleManager == null) return 0.0.obs;
+      return _bleManager!.intensityValue;
+      }
     return targetIntensity.value.obs;
   }
 
   RxDouble get moduleTime {
-    if (_isBle) {return _bleManager!.targetTimeValue;}
+    if (_isBle) {
+      if (_bleManager == null) return 0.0.obs;
+      return _bleManager!.targetTimeValue;
+      }
     return (targetIntensity.value).obs;  
   }
 
   RxDouble get moduleElapsedTime {
-    if (_isBle) {return _bleManager!.elapsedTimeValue;}
+    if (_isBle) {
+      if (_bleManager == null) return 0.0.obs;
+      return _bleManager!.elapsedTimeValue;
+      }
     return elapsedTime.value.obs;  
   }
 
@@ -77,6 +87,36 @@ class Module {
     }
   }
 
+  void dispose() async {
+    try {
+      // Cancel the connection state listener first
+      await _deviceConnectionState?.cancel();
+      _deviceConnectionState = null;
+
+      // Disconnect from the device if connected
+      if (isConnected.value) {
+        await disconnect();
+      }
+
+      // Dispose of the BLE manager
+      _bleManager?.dispose();
+      _bleManager = null;
+
+      // Clear all Rx variables
+      isConnected.close();
+      targetIntensity.close();
+      targetTime.close();
+      elapsedTime.close();
+
+      // Clear connected devices list
+      connectedDevices.clear();
+
+      print('Module $_serialNumber disposed successfully');
+    } catch (e) {
+      print('Error disposing Module $_serialNumber: $e');
+    }
+  }
+
   // Private Methods
   /*void updateStatus(num newStatus) {
     _status = newStatus;
@@ -86,33 +126,47 @@ class Module {
   Future<void> connect() async {
     if (_isBle) {
       try {
-        await _device?.connect(timeout: Duration(seconds: 15));
+        await _deviceConnectionState?.cancel(); // Avoid double subscriptions
+        await _device?.connect(autoConnect: true, timeout: Duration(seconds: 5), mtu: null);
 
-        _device?.connectionState.listen((state) async {
+        _deviceConnectionState = _device?.connectionState.listen((state) async {
           if (state == BluetoothConnectionState.connected) {
-            print('Device Connected to: ${_device?.platformName}');
+            print('MODULE Connected to: ${_device?.platformName}');
             isConnected.value = true;
             _status = StatusType.connected;
-            return;
+
+            _bleManager ??= BleServiceManager(_device!); // Initialise BLE manager if not available
           } else {
-            print('Device Disconnected');
+            print('MODULE Abrupt Disconnect from device');
+            isConnected.value = false;
+            _status = StatusType.disconnected;
+
+            // Clean Up BLE manager to avoid memory leaks
+            _bleManager?.dispose();
+            _bleManager = null;
           }
         });
       } catch (e) {
         print('Connection error: $e');
-      }
+        isConnected.value = false;
+        _status = StatusType.disconnected;
 
-      isConnected.value = false;
-      _status = StatusType.disconnected;
+        _bleManager?.dispose();
+        _bleManager = null;
+      }
       return;
     }
+
     isConnected.value = true;
     _status = StatusType.connected;
   }
 
   Future<void> disconnect() async {
+    print('MODULE Disconnected from device');
     isConnected.value = false;
     _status = StatusType.disconnected;
+
+    await _deviceConnectionState?.cancel();
     await _device?.disconnect();
   }
 
@@ -149,6 +203,7 @@ class Module {
 }
 
 class BleServiceManager {
+  // Services
   static final therapyControlService = Guid('00000001-710e-4a5b-8d75-3e5b444bc3cf');
   static final moduleInfoService = Guid('00000011-710e-4a5b-8d75-3e5b444bc3cf');
   
@@ -170,20 +225,44 @@ class BleServiceManager {
   StreamSubscription<String>? _statusSubscription;
   StreamSubscription<double>? _elapsedTimeSubscription;
 
+  // Private
+  bool _isTherapyActive = false;
+
+  // Constructor
   BleServiceManager(this.device) {
     _initStatusMonitoring();
   }
 
-  void dispose() {
-    _statusSubscription?.cancel();
-    _elapsedTimeSubscription?.cancel();
+  // Destructor
+  void dispose() async {
+    try {
+      // Cancel all active subscriptions
+      await _statusSubscription?.cancel();
+      await _elapsedTimeSubscription?.cancel();
+
+      // Clear Rx variables
+      intensityValue.close();
+      targetTimeValue.close();
+      elapsedTimeValue.close();
+
+      // Reset state
+      _isTherapyActive = false;
+      _statusSubscription = null;
+      _elapsedTimeSubscription = null;
+
+      print('BleServiceManager for device ${device.remoteId} disposed');
+    } catch (e) {
+      print('Error disposing BleServiceManager: $e');
+    }
   }
 
+  // Private Methods
   void _initStatusMonitoring() {
     _statusSubscription = getStatus().listen((status) {
       // Handle status changes
       if (status == 'Active') {
         _startElapsedTimeMonitoring();
+        _isTherapyActive = true;
       } else {
         _stopElapsedTimeMonitoring();
       }
@@ -192,16 +271,12 @@ class BleServiceManager {
     });
   }
 
-  Future<void> refreshValues() async {
-    intensityValue.value = (await getIntensity());
-    targetTimeValue.value = (await getTargetTime());
-  }
-
-    void _startElapsedTimeMonitoring() {
-    _elapsedTimeSubscription?.cancel(); // Cancel any existing subscription
+  void _startElapsedTimeMonitoring() {
+    if (!_isTherapyActive) {_elapsedTimeSubscription?.cancel();} // Cancel any existing subscription
     
+    //print('MODULE TIME ELAPSED READING');
     _elapsedTimeSubscription = getTimeElapsed().listen((time) {
-      print('[TEST] CURRENT TIME IS: $time');
+      //print('MODULE TIME: $time');
       elapsedTimeValue.value = time;
     }, onError: (error) {
       print('Error in elapsed time stream: $error');
@@ -212,6 +287,12 @@ class BleServiceManager {
     _elapsedTimeSubscription?.cancel();
     _elapsedTimeSubscription = null;
     elapsedTimeValue.value = 0.0; // Reset elapsed time when not active
+    _isTherapyActive = false;
+  }
+
+  Future<void> refreshValues() async {
+    intensityValue.value = (await getIntensity());
+    targetTimeValue.value = (await getTargetTime());
   }
 
   // UTF-8 String Helper Methods
