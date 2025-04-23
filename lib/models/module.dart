@@ -127,7 +127,7 @@ class Module {
     if (_isBle) {
       try {
         await _deviceConnectionState?.cancel(); // Avoid double subscriptions
-        await _device?.connect(autoConnect: true, timeout: Duration(seconds: 15), mtu: null);
+        await _device?.connect(autoConnect: true, timeout: Duration(seconds: 5), mtu: null);
 
         _deviceConnectionState = _device?.connectionState.listen((state) async {
           if (state == BluetoothConnectionState.connected) {
@@ -137,7 +137,7 @@ class Module {
 
             _bleManager ??= BleServiceManager(_device!); // Initialise BLE manager if not available
           } else {
-            print('MODULE Disconnected from device');
+            print('MODULE Abrupt Disconnect from device');
             isConnected.value = false;
             _status = StatusType.disconnected;
 
@@ -162,6 +162,7 @@ class Module {
   }
 
   Future<void> disconnect() async {
+    print('MODULE Disconnected from device');
     isConnected.value = false;
     _status = StatusType.disconnected;
 
