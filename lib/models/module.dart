@@ -29,6 +29,8 @@ class Module {
   StatusType _status = StatusType.disconnected;
   
   bool _isBle = false;
+  int _reconnectAttempts = 0;
+  static const int _maxReconnectAttempts = 3;
 
   BluetoothDevice? _device;
   BleServiceManager? _bleManager;
@@ -53,7 +55,7 @@ class Module {
       if (_bleManager == null) return 0.0.obs;
       return _bleManager!.intensityValue;
       }
-    return targetIntensity.value.obs;
+    return targetIntensity;
   }
 
   RxDouble get moduleTime {
@@ -61,7 +63,7 @@ class Module {
       if (_bleManager == null) return 0.0.obs;
       return _bleManager!.targetTimeValue;
       }
-    return (targetIntensity.value).obs;  
+    return targetIntensity;  
   }
 
   RxDouble get moduleElapsedTime {
@@ -69,7 +71,7 @@ class Module {
       if (_bleManager == null) return 0.0.obs;
       return _bleManager!.elapsedTimeValue;
       }
-    return elapsedTime.value.obs;  
+    return elapsedTime;  
   }
 
   // Constructor
@@ -118,9 +120,26 @@ class Module {
   }
 
   // Private Methods
-  /*void updateStatus(num newStatus) {
-    _status = newStatus;
-  }*/
+  Future<void> _attemptReconnect() async {
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      print('[MODULE] Max reconnection attempts ($_maxReconnectAttempts) reached for $_serialNumber');
+      _reconnectAttempts = 0;
+      return;
+    }
+
+    _reconnectAttempts++;
+    print('[MODULE] Attempting to reconnect ($_reconnectAttempts/$_maxReconnectAttempts) to $_serialNumber');
+    
+    try {
+      await Future.delayed(Duration(seconds: 1)); // Add a small delay before reconnecting
+      await connect();
+    } catch (e) {
+      print('[MODULE] Reconnection attempt $_reconnectAttempts failed: $e');
+      if (_reconnectAttempts < _maxReconnectAttempts) {
+        await _attemptReconnect(); // Recursively attempt reconnection
+      }
+    }
+  }
 
   // Public Methods
   Future<void> connect() async {
@@ -131,19 +150,23 @@ class Module {
 
         _deviceConnectionState = _device?.connectionState.listen((state) async {
           if (state == BluetoothConnectionState.connected) {
-            print('MODULE Connected to: ${_device?.platformName}');
+            print('[MODULE] Connected to: ${_device?.platformName}');
             isConnected.value = true;
             _status = StatusType.connected;
+            _reconnectAttempts = 0; // Reset reconnect attempts on successful connection
 
             _bleManager ??= BleServiceManager(_device!); // Initialise BLE manager if not available
           } else {
-            print('MODULE Abrupt Disconnect from device');
+            print('[MODULE] Abrupt Disconnect from device');
             isConnected.value = false;
             _status = StatusType.disconnected;
 
             // Clean Up BLE manager to avoid memory leaks
             _bleManager?.dispose();
             _bleManager = null;
+
+            // Attempt to reconnect
+            await _attemptReconnect();
           }
         });
       } catch (e) {
@@ -153,6 +176,9 @@ class Module {
 
         _bleManager?.dispose();
         _bleManager = null;
+
+        // Attempt to reconnect
+        await _attemptReconnect();
       }
       return;
     }
@@ -162,9 +188,10 @@ class Module {
   }
 
   Future<void> disconnect() async {
-    print('MODULE Disconnected from device');
+    print('[MODULE] Disconnected from device');
     isConnected.value = false;
     _status = StatusType.disconnected;
+    _reconnectAttempts = 0; // Reset reconnect attempts on manual disconnect
 
     await _deviceConnectionState?.cancel();
     await _device?.disconnect();
@@ -274,9 +301,9 @@ class BleServiceManager {
   void _startElapsedTimeMonitoring() {
     if (!_isTherapyActive) {_elapsedTimeSubscription?.cancel();} // Cancel any existing subscription
     
-    //print('MODULE TIME ELAPSED READING');
+    //print('[MODULE] TIME ELAPSED READING');
     _elapsedTimeSubscription = getTimeElapsed().listen((time) {
-      //print('MODULE TIME: $time');
+      //print('[MODULE] TIME: $time');
       elapsedTimeValue.value = time;
     }, onError: (error) {
       print('Error in elapsed time stream: $error');

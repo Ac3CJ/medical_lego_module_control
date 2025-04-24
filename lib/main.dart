@@ -7,14 +7,6 @@ import 'models/module_manager.dart';
 import 'models/module_type.dart';
 import 'models/bluetooth_service.dart';
 
-// MIGHT NEED TO MAKE THIS AN OBJECT TO PREVENT CONFUSION IN THE FUTURE
-// Debug Variables
-Map moduleMap = {
-  1: 'Heat',
-  2: 'Infrared',
-  3: 'Vibration'
-};
-
 // Extensions
 extension ParseToString on String {
   String capitalise() {
@@ -98,22 +90,22 @@ class _HomePageState extends State<HomePage> {
     
     return managers;
   }
-  /*
+
   void _initialiseDemoModules() {
-    moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'TMP-001', 0x00));
-    moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'TMP-002', 0x01));
-    moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'TMP-003', 0x02));
+    // moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'TMP-001', 0x00));
+    moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E6', 'TMP-002', 0x01));
+    moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E7', 'TMP-003', 0x02));
 
-    moduleManagers[ModuleType.infrared]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'IR-001', 0x00));
-    moduleManagers[ModuleType.infrared]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'IR-002', 0x01));
-    moduleManagers[ModuleType.infrared]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'IR-003', 0x02));
+    moduleManagers[ModuleType.infrared]?.addNewModule(Module('A0:02:A5:06:1D:E8', 'IR-001', 0x00));
+    moduleManagers[ModuleType.infrared]?.addNewModule(Module('A0:02:A5:06:1D:E9', 'IR-002', 0x01));
+    // moduleManagers[ModuleType.infrared]?.addNewModule(Module('A0:02:A5:06:1D:F0', 'IR-003', 0x02));
 
-    moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'VBR-001', 0x00));
-    moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'VBR-002', 0x01));
-    moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'VBR-003', 0x02));
-    moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'VBR-004', 0x03));
+    moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:F1', 'VBR-001', 0x00));
+    // moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:F2', 'VBR-002', 0x01));
+    // moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:F3', 'VBR-003', 0x02));
+    // moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:F4', 'VBR-004', 0x03));
   }
-  */
+
 
   // Building the Widgets
   @override
@@ -165,7 +157,7 @@ class _HomePageState extends State<HomePage> {
               });
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('${ModuleType.values[index].toShortString().capitalise()} Module - Intensity: ${manager?.moduleIntensity}%, Time: ${manager?.moduleTime} min'),
+                    content: Text('${ModuleType.values[index].toShortString().capitalise()} Module - Intensity: ${manager?.moduleIntensity.toInt()}%, Time: ${manager?.moduleTime} min'),
                   ),
                 );
               },
@@ -304,11 +296,11 @@ class _HomePageState extends State<HomePage> {
                                     style: const TextStyle(fontSize: 12),
                                   ),
                                   Obx(() => Text(
-                                    'Intensity: ${module.moduleIntensity.value}%',
+                                    'Intensity: ${module.moduleIntensity.value.toInt()}%',
                                     style: const TextStyle(fontSize: 12),
                                   )),
                                   Obx(() => Text(
-                                    'Target Time: ${module.moduleTime.value} min',
+                                    'Target Time: ${module.moduleTime.value.toInt()} min',
                                     style: const TextStyle(fontSize: 12),
                                   )),
                                   Obx(() => Text(
