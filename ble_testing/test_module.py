@@ -45,6 +45,7 @@ from service import Application, Service, Characteristic, Descriptor
 import sys
 import time
 import threading
+import subprocess
 
 GATT_CHRC_IFACE = "org.bluez.GattCharacteristic1"
 NOTIFY_TIMEOUT = 5000
@@ -79,6 +80,14 @@ def print_progress_bar(iteration, total, prefix='', suffix='', length=30, fill='
     # Print New Line on Complete
     if iteration == total: 
         print()    
+
+def bluetooth_power(state):
+    state_str = "on" if state else "off"
+    try:
+        subprocess.run(["bluetoothctl", "power", state_str], check=True)
+        return True
+    except subprocess.CalledProcessError:
+        return False       
 
 # ===============================================================================================================
 # =============================================== ADVERTISEMENT =================================================
