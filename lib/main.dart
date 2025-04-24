@@ -138,6 +138,8 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildControlRow(int index) {
     ModuleManager? manager = moduleManagers[ModuleType.values[index]];
+    final moduleType = ModuleType.values[index].toShortString().capitalise();
+    
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
@@ -146,32 +148,40 @@ class _HomePageState extends State<HomePage> {
       ),
       child: Column(
         children: [
-          // Big Button
+          // Big Button - Now changes based on active status
           SizedBox(
             width: double.infinity,
             height: 32,
-            child: ElevatedButton(
-              onPressed: () { // Action when button is pressed
-              setState(() {
-                manager?.sendCommandToAll(intensityValues[index], timeValues[index]);
-              });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${ModuleType.values[index].toShortString().capitalise()} Module - Intensity: ${manager?.moduleIntensity.toInt()}%, Time: ${manager?.moduleTime} min'),
+            child: Obx(() {
+              final isActive = manager?.isActive.value ?? false;
+              return ElevatedButton(
+                onPressed: () {
+                  if (isActive) {
+                    // Stop therapy - send 0 intensity and 0 time
+                    manager?.sendCommandToAll(0, 0);
+                  } else {
+                    // Start therapy - use current slider values
+                    manager?.sendCommandToAll(intensityValues[index], timeValues[index]);
+                  }
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('$moduleType Module - ${isActive ? 'Stopped' : 'Started'}'),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isActive ? Colors.red[700] : Colors.blue[700],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue[700],
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
                 ),
-              ),
-              child: Text(
-                '${ModuleType.values[index].toShortString().capitalise()} Module',
-                style: const TextStyle(fontSize: 20, color: Colors.white),
-              ),
-            ),
+                child: Text(
+                  '$moduleType Therapy: ${isActive ? 'Stop' : 'Run'}',
+                  style: const TextStyle(fontSize: 20, color: Colors.white),
+                ),
+              );
+            }),
           ),
           const SizedBox(height: 16),
           

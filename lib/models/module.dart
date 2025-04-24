@@ -5,19 +5,12 @@ import 'dart:convert';
 import 'dart:async';
 import 'module_type.dart';
 
-// FIND A WAY TO MAKE IT SO THAT MODULES CAN DISCONNECT AND RECONNECT, FINDING OUT WHEN IT HAPPENS
-
-// Module Status is held as a binary value
-// 0x00 -> Off
-// 0x01 -> Inactive
-// 0x02 -> Active
-// 0x03 -> Pairing
 enum StatusType {
-  connected,
-  disconnected,
-  active,
-  inactive,
-  pairing,
+  connected,    // This means the module is inactive as well
+  disconnected, // Device is no longer connected to module
+  active,       // Therapy is active
+  // inactive,
+  // pairing,
 }
 
 class Module {
@@ -35,6 +28,7 @@ class Module {
   BluetoothDevice? _device;
   BleServiceManager? _bleManager;
   StreamSubscription<BluetoothConnectionState>? _deviceConnectionState;
+  StreamSubscription<String>? _statusSubscription;
 
   // RSSI 
   RxInt _rssi = (-100).obs; // Initialize with a default low value
@@ -58,15 +52,15 @@ class Module {
 
   RxDouble get moduleIntensity {
     if (_isBle) {
-      if (_bleManager == null) return 0.0.obs;
+      if (_bleManager == null) {return 0.0.obs;}
       return _bleManager!.intensityValue;
-      }
+    }
     return targetIntensity;
   }
 
   RxDouble get moduleTime {
     if (_isBle) {
-      if (_bleManager == null) return 0.0.obs;
+      if (_bleManager == null) {return 0.0.obs;}
       return _bleManager!.targetTimeValue;
       }
     return targetIntensity;  
@@ -74,7 +68,7 @@ class Module {
 
   RxDouble get moduleElapsedTime {
     if (_isBle) {
-      if (_bleManager == null) return 0.0.obs;
+      if (_bleManager == null) {return 0.0.obs;}
       return _bleManager!.elapsedTimeValue;
       }
     return elapsedTime;  
@@ -92,11 +86,16 @@ class Module {
     if (_device != null) {
       _isBle = true;
       _bleManager = BleServiceManager(_device!);
+      _setupStatusListener(); 
     }
   }
 
   void dispose() async {
     try {
+      // Cancel the status subscription
+      await _statusSubscription?.cancel();
+      _statusSubscription = null;
+
       // Cancel the RSSI timer
       _rssiTimer?.cancel();
       _rssiTimer = null;
@@ -129,6 +128,20 @@ class Module {
   }
 
   // Private Methods
+  void _setupStatusListener() {
+    _statusSubscription?.cancel(); // Cancel any existing subscription
+    _statusSubscription = _bleManager?.getStatus().listen((status) {
+      if (status == 'Active') {
+        _status = StatusType.active;
+      } else {
+        // When inactive, set to connected (not disconnected)
+        _status = StatusType.connected;
+      }
+    }, onError: (error) {
+      print('Error in status stream: $error');
+    });
+  }
+
   void _manageRssiUpdates() {
     if (_isBle && isConnected.value && _device != null) {
       // Start RSSI updates if not already running
