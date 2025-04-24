@@ -70,7 +70,7 @@ class _HomePageState extends State<HomePage> {
     // _initialiseDemoModules();
 
     // Bluetooth Services
-    bleController = BleController();
+    bleController = BleController(moduleManagers);
     bleController.scanDevices();
   }
 
@@ -463,6 +463,7 @@ class _HomePageState extends State<HomePage> {
                                         }
                                         // Trigger Refresh
                                         _refreshTrigger.toggle();
+                                        setState(() {});
                                       }
                                     },
                                   ),

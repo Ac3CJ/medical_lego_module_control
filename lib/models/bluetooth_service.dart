@@ -1,4 +1,6 @@
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:module_control/models/module_manager.dart';
+import 'package:module_control/models/module_type.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:get/get.dart';
 import 'dart:async';
@@ -6,6 +8,7 @@ import 'dart:async';
 class BleController extends GetxController {
   // Private
   final List<String> _targetDevicePrefixes = ['LM Health'];
+  Map<ModuleType, ModuleManager> moduleManagers;
 
   // Target Service and Characteristic UUIDs
   final Guid _informationServiceUuid = Guid('00000011-710e-4a5b-8d75-3e5b444bc3cf');
@@ -25,13 +28,29 @@ class BleController extends GetxController {
     (results) => results.where((result) {
       final deviceName = result.device.platformName;
       if (deviceName.isEmpty) return false;
-      return _targetDevicePrefixes.any((prefix) => deviceName.startsWith(prefix));
+      
+      // Check if device matches target prefixes
+      final isTargetDevice = _targetDevicePrefixes.any((prefix) => deviceName.startsWith(prefix));
+      if (!isTargetDevice) return false;
+      
+      // Get all connected device serial numbers from all managers
+      final connectedSerials = moduleManagers.values
+          .expand((manager) => manager.allModules)
+          .map((module) => module.serialNumber)
+          .toSet();
+      
+      // Check if this device's MAC is already managed
+      final macAddress = result.device.remoteId.str;
+      return !connectedSerials.contains(macAddress);
     }).toList(),
   );
     
   RxString get currentDeviceId => _currentDeviceId;
   RxString get currentDeviceLocationId => _currentDeviceLocationId;
   RxString get currentDeviceMacAddress => _currentDeviceMacAddress;
+
+  // Constructor
+  BleController(this.moduleManagers);
 
   // Private Methods
   Future<void> _requestPermissions() async {
