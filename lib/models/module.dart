@@ -21,7 +21,7 @@ enum StatusType {
 }
 
 class Module {
-  //Private
+  // Private
   final String _serialNumber;
   final String _moduleId;
   final num _locationId; 
@@ -36,6 +36,11 @@ class Module {
   BleServiceManager? _bleManager;
   StreamSubscription<BluetoothConnectionState>? _deviceConnectionState;
 
+  // RSSI 
+  RxInt _rssi = (-100).obs; // Initialize with a default low value
+  static const Duration _rssiUpdateInterval = Duration(seconds: 2);
+  Timer? _rssiTimer;
+
   // Public
   RxBool isConnected = false.obs;
   List<String> connectedDevices = [];
@@ -49,6 +54,7 @@ class Module {
   ModuleType get moduleType => _moduleType;
   StatusType get moduleStatus => _status;
   num get locationId => _locationId;
+  RxInt get rssi => _rssi;
 
   RxDouble get moduleIntensity {
     if (_isBle) {
@@ -91,6 +97,9 @@ class Module {
 
   void dispose() async {
     try {
+      // Cancel the RSSI timer
+      _rssiTimer?.cancel();
+      _rssiTimer = null;
       // Cancel the connection state listener first
       await _deviceConnectionState?.cancel();
       _deviceConnectionState = null;
@@ -120,6 +129,30 @@ class Module {
   }
 
   // Private Methods
+  void _manageRssiUpdates() {
+    if (_isBle && isConnected.value && _device != null) {
+      // Start RSSI updates if not already running
+      if (_rssiTimer == null || !_rssiTimer!.isActive) {
+        _rssiTimer = Timer.periodic(_rssiUpdateInterval, (_) async {
+          try {
+            if (isConnected.value && _device != null) {
+              final newRssi = await _device!.readRssi();
+              _rssi.value = newRssi;
+            }
+          } catch (e) {
+            print('Error reading RSSI: $e');
+            _rssi.value = -100; // Reset to minimum value on error
+          }
+        });
+      }
+    } else {
+      // Stop RSSI updates if not connected
+      _rssiTimer?.cancel();
+      _rssiTimer = null;
+      _rssi.value = -100; // Reset to minimum value when disconnected
+    }
+  }
+
   Future<void> _attemptReconnect() async {
     if (_reconnectAttempts >= _maxReconnectAttempts) {
       print('[MODULE] Max reconnection attempts ($_maxReconnectAttempts) reached for $_serialNumber');
@@ -141,6 +174,43 @@ class Module {
     }
   }
 
+  Future<void> _handleConnection() async {
+    print('[MODULE] Connected to: ${_device?.platformName}');
+    isConnected.value = true;
+    _status = StatusType.connected;
+    _reconnectAttempts = 0; // Reset reconnect attempts on successful connection
+
+    _bleManager ??= BleServiceManager(_device!); // Initialize BLE manager if not available
+    _manageRssiUpdates(); // Start RSSI updates
+  }
+
+  Future<void> _handleDisconnection() async {
+    print('[MODULE] Abrupt Disconnect from device');
+    isConnected.value = false;
+    _status = StatusType.disconnected;
+    _manageRssiUpdates(); // This will stop RSSI updates
+
+    // Clean Up BLE manager to avoid memory leaks
+    _bleManager?.dispose();
+    _bleManager = null;
+
+    // Attempt to reconnect
+    await _attemptReconnect();
+  }
+
+  Future<void> _handleConnectionError(dynamic error) async {
+    print('Connection error: $error');
+    isConnected.value = false;
+    _status = StatusType.disconnected;
+    _manageRssiUpdates(); // This will stop RSSI updates
+
+    _bleManager?.dispose();
+    _bleManager = null;
+
+    // Attempt to reconnect
+    await _attemptReconnect();
+  }
+
   // Public Methods
   Future<void> connect() async {
     if (_isBle) {
@@ -151,38 +221,17 @@ class Module {
         _deviceConnectionState = _device?.connectionState.listen((state) async {
           if (state == BluetoothConnectionState.connected) {
             print('[MODULE] Connected to: ${_device?.platformName}');
-            isConnected.value = true;
-            _status = StatusType.connected;
-            _reconnectAttempts = 0; // Reset reconnect attempts on successful connection
-
-            _bleManager ??= BleServiceManager(_device!); // Initialise BLE manager if not available
+            await _handleConnection();
           } else {
-            print('[MODULE] Abrupt Disconnect from device');
-            isConnected.value = false;
-            _status = StatusType.disconnected;
-
-            // Clean Up BLE manager to avoid memory leaks
-            _bleManager?.dispose();
-            _bleManager = null;
-
-            // Attempt to reconnect
-            await _attemptReconnect();
+            await _handleDisconnection();
           }
         });
       } catch (e) {
-        print('Connection error: $e');
-        isConnected.value = false;
-        _status = StatusType.disconnected;
-
-        _bleManager?.dispose();
-        _bleManager = null;
-
-        // Attempt to reconnect
-        await _attemptReconnect();
+        await _handleConnectionError(e);
       }
       return;
     }
-
+    // Non-BLE Connection
     isConnected.value = true;
     _status = StatusType.connected;
   }
@@ -195,6 +244,9 @@ class Module {
 
     await _deviceConnectionState?.cancel();
     await _device?.disconnect();
+
+    _bleManager?.dispose();
+    _bleManager = null;
   }
 
   void sendCommand(double intensity, double targetT) async{

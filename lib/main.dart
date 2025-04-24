@@ -300,12 +300,19 @@ class _HomePageState extends State<HomePage> {
                                     style: const TextStyle(fontSize: 12),
                                   )),
                                   Obx(() => Text(
-                                    'Target Time: ${module.moduleTime.value.toInt()} min',
+                                    'Target Time: ${module.moduleTime.value.toInt()} Min',
                                     style: const TextStyle(fontSize: 12),
                                   )),
                                   Obx(() => Text(
-                                    'Time Elapsed: ${module.moduleElapsedTime.value.toInt()} Seconds',
+                                    'Elapsed: ${module.moduleElapsedTime.value.toInt()} Sec',
                                     style: const TextStyle(fontSize: 12),
+                                  )),
+                                  Obx(() => Text(
+                                    'RSSI: ${module.rssi.value} dBm',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: _getRssiColor(module.rssi.value),
+                                    ),
                                   )),
                                 ],
                               ),
