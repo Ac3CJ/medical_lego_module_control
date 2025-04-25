@@ -116,6 +116,8 @@ class InfoService(Service):
         Service.__init__(self, index, self.THERAPY_SVC_UUID, True)
         self.add_characteristic(DeviceIdCharacteristic(self))
         self.add_characteristic(LocationIdCharacteristic(self))
+        self.add_characteristic(BatteryLifeCharacteristic(self))
+        
 
     # Setters
 
@@ -160,6 +162,58 @@ class LocationIdCharacteristic(Characteristic):
         for c in desc:
             value.append(dbus.Byte(c.encode()))
 
+        return value
+    
+class BatteryLifeCharacteristic(Characteristic):
+    BATTERY_LIFE_CHARACTERISTIC_UUID = "00000014-710e-4a5b-8d75-3e5b444bc3cf"
+
+    def __init__(self, service):
+        self.batteryLife = 100
+        Characteristic.__init__(
+                self, self.BATTERY_LIFE_CHARACTERISTIC_UUID,
+                ["notify", "read"],
+                service)
+        
+        # Start the background battery drain thread
+        self.batteryDrainThread = threading.Thread(target=self.batteryDrainLoop, daemon=True)
+        self.batteryDrainThread.start()
+
+    def batteryDrainLoop(self):
+        while True:
+            time.sleep(5)
+            self.batteryLife -= 1
+
+            if (self.batteryLife <= 0):
+                self.batteryLife = 100
+
+    def getBatteryLife(self):
+        value = []
+        strBatteryLife = str(self.batteryLife)
+
+        for c in strBatteryLife:
+            value.append(dbus.Byte(c.encode()))
+        return value
+
+    def setBatteryLifeCallback(self):
+        if self.notifying:
+            value = self.getBatteryLife()
+            self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
+        return self.notifying
+
+    def StartNotify(self):
+        if self.notifying:
+            return
+        self.notifying = True
+
+        value = self.getBatteryLife()
+        self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
+        self.add_timeout(NOTIFY_TIMEOUT, self.setBatteryLifeCallback)
+
+    def StopNotify(self):
+        self.notifying = False
+
+    def ReadValue(self, options):
+        value = self.getBatteryLife()
         return value
 
 # ===============================================================================================================

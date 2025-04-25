@@ -324,6 +324,13 @@ class _HomePageState extends State<HomePage> {
                                       color: _getRssiColor(module.rssi.value),
                                     ),
                                   )),
+                                  Obx(() => Text(
+                                    'Battery: ${module.moduleBatteryLife.value}%',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: _getBatteryColor(module.moduleBatteryLife.value),
+                                    ),
+                                  )),
                                 ],
                               ),
                             );
@@ -505,6 +512,13 @@ class _HomePageState extends State<HomePage> {
     if (rssi >= -50) return Colors.green;
     if (rssi >= -70) return Colors.lightGreen;
     if (rssi >= -85) return Colors.orange;
+    return Colors.red;
+  }
+  
+  Color _getBatteryColor(int batterLife) {
+    if (batterLife >= 75) return Colors.green;
+    if (batterLife >= 50) return Colors.orange;
+    if (batterLife >= 25) return Colors.deepOrange;
     return Colors.red;
   }
 }

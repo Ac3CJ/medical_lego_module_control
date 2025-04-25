@@ -30,6 +30,8 @@ class Module {
   StreamSubscription<BluetoothConnectionState>? _deviceConnectionState;
   StreamSubscription<String>? _statusSubscription;
 
+  RxInt _batteryLevel = 0.obs;
+
   // RSSI 
   RxInt _rssi = (-100).obs; // Initialize with a default low value
   static const Duration _rssiUpdateInterval = Duration(seconds: 2);
@@ -49,6 +51,14 @@ class Module {
   StatusType get moduleStatus => _status;
   num get locationId => _locationId;
   RxInt get rssi => _rssi;
+
+  RxInt get moduleBatteryLife {
+    if (_isBle) {
+      if (_bleManager == null) {return 0.obs;}
+      return _bleManager!.batteryLifeValue;
+    }
+    return _batteryLevel;
+  }
 
   RxDouble get moduleIntensity {
     if (_isBle) {
@@ -92,7 +102,7 @@ class Module {
 
   void dispose() async {
     try {
-      // Cancel the status subscription
+      // Cancel all subscriptions
       await _statusSubscription?.cancel();
       _statusSubscription = null;
 
@@ -117,6 +127,7 @@ class Module {
       targetIntensity.close();
       targetTime.close();
       elapsedTime.close();
+      _batteryLevel.close();
 
       // Clear connected devices list
       connectedDevices.clear();
@@ -306,16 +317,19 @@ class BleServiceManager {
   static final statusChar = Guid('00000005-710e-4a5b-8d75-3e5b444bc3cf');
   static final deviceIdChar = Guid('00000012-710e-4a5b-8d75-3e5b444bc3cf');
   static final locationIdChar = Guid('00000013-710e-4a5b-8d75-3e5b444bc3cf');
+  static final batteryLevelChar = Guid('00000014-710e-4a5b-8d75-3e5b444bc3cf'); // Standard Battery Level Characteristic UUID
 
   BluetoothDevice device;
   
   RxDouble intensityValue = 0.0.obs;
   RxDouble targetTimeValue = 0.0.obs;
   RxDouble elapsedTimeValue = 0.0.obs;
+  RxInt batteryLifeValue = 0.obs;
 
   // Stream subscriptions
   StreamSubscription<String>? _statusSubscription;
   StreamSubscription<double>? _elapsedTimeSubscription;
+  StreamSubscription<int>? _batterySubscription;
 
   // Private
   bool _isTherapyActive = false;
@@ -323,6 +337,7 @@ class BleServiceManager {
   // Constructor
   BleServiceManager(this.device) {
     _initStatusMonitoring();
+    _initBatteryMonitoring();
   }
 
   // Destructor
@@ -331,6 +346,7 @@ class BleServiceManager {
       // Cancel all active subscriptions
       await _statusSubscription?.cancel();
       await _elapsedTimeSubscription?.cancel();
+      await _batterySubscription?.cancel();
 
       // Clear Rx variables
       intensityValue.close();
@@ -341,6 +357,7 @@ class BleServiceManager {
       _isTherapyActive = false;
       _statusSubscription = null;
       _elapsedTimeSubscription = null;
+      _batterySubscription = null;
 
       print('BleServiceManager for device ${device.remoteId} disposed');
     } catch (e) {
@@ -363,12 +380,19 @@ class BleServiceManager {
     });
   }
 
+  void _initBatteryMonitoring() {
+    _batterySubscription = getBatteryLevel().listen((batteryLife) {
+      print('[MODULE] BATTERY LIFE: $batteryLife');
+      batteryLifeValue.value = batteryLife;
+    }, onError: (error) {
+      print('Error in battery level stream: $error');
+    });
+  }
+
   void _startElapsedTimeMonitoring() {
     if (!_isTherapyActive) {_elapsedTimeSubscription?.cancel();} // Cancel any existing subscription
     
-    //print('[MODULE] TIME ELAPSED READING');
     _elapsedTimeSubscription = getTimeElapsed().listen((time) {
-      //print('[MODULE] TIME: $time');
       elapsedTimeValue.value = time;
     }, onError: (error) {
       print('Error in elapsed time stream: $error');
@@ -396,6 +420,12 @@ class BleServiceManager {
     return utf8.encode(value);
   }
 
+  // Battery Service Methods
+  Stream<int> getBatteryLevel() {
+    return _setupNotification(batteryLevelChar, moduleInfoService)
+        .map((data) => int.parse(_decodeUtf8(data))); // First byte is battery level (0-100)
+  }
+
   // Therapy Control Service Methods
   Stream<double> getTimeElapsed() {
     return _setupNotification(timeElapsedChar, therapyControlService)
@@ -413,7 +443,6 @@ class BleServiceManager {
     if (percentage < 0 || percentage > 100) {
       throw ArgumentError('Intensity must be between 0 and 100');
     }
-    // final bytes = _writeInt32(percentage);
     final bytes = _encodeUtf8(percentage.toString());
     await _writeCharacteristic(intensityChar, therapyControlService, bytes);
   }
@@ -426,7 +455,6 @@ class BleServiceManager {
   }
 
   Future<void> setTargetTime(int seconds) async {
-    // final bytes = _writeInt32(seconds);
     final bytes = _encodeUtf8(seconds.toString());
     await _writeCharacteristic(targetTimeChar, therapyControlService, bytes);
   }

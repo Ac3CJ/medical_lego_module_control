@@ -62,7 +62,12 @@
                 "uuid": "00000013-710e-4a5b-8d75-3e5b444bc3cf",
                 "name": "Location ID",
                 "properties": ["read"]
-            }
+            },
+            {
+              "uuid": "00000014-710e-4a5b-8d75-3e5b444bc3cf",
+              "name": "Battery Life",
+              "properties": ["notify", "read"]
+          }
         ]
       }
 
