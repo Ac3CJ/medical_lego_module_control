@@ -317,6 +317,11 @@ class _HomePageState extends State<HomePage> {
                                     'Elapsed: ${module.moduleElapsedTime.value.toInt()} Sec',
                                     style: const TextStyle(fontSize: 12),
                                   )),
+                                  Text(
+                                    'Status: ${module.moduleStatus.toShortString().capitalise()}',
+                                    //'Status: Test',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
                                   Obx(() => Text(
                                     'RSSI: ${module.rssi.value} dBm',
                                     style: TextStyle(
@@ -515,10 +520,10 @@ class _HomePageState extends State<HomePage> {
     return Colors.red;
   }
   
-  Color _getBatteryColor(int batterLife) {
-    if (batterLife >= 75) return Colors.green;
-    if (batterLife >= 50) return Colors.orange;
-    if (batterLife >= 25) return Colors.deepOrange;
+  Color _getBatteryColor(int batteryLife) {
+    if (batteryLife >= 75) return Colors.green;
+    if (batteryLife >= 50) return Colors.orange;
+    if (batteryLife >= 25) return Colors.deepOrange;
     return Colors.red;
   }
 }

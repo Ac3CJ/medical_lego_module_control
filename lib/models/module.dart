@@ -13,13 +13,19 @@ enum StatusType {
   // pairing,
 }
 
+extension ParseToString on StatusType {
+  String toShortString() {
+    return toString().split('.').last;
+  }
+}
+
 class Module {
   // Private
   final String _serialNumber;
   final String _moduleId;
   final num _locationId; 
   ModuleType _moduleType = ModuleType.unknown;
-  StatusType _status = StatusType.disconnected;
+  StatusType _status = StatusType.disconnected; // Keep this value for potential future
   
   bool _isBle = false;
   int _reconnectAttempts = 0;
@@ -31,11 +37,12 @@ class Module {
   StreamSubscription<String>? _statusSubscription;
 
   RxInt _batteryLevel = 0.obs;
+  RxBool _isActive = false.obs;
 
   // RSSI 
   RxInt _rssi = (-100).obs; // Initialize with a default low value
-  static const Duration _rssiUpdateInterval = Duration(seconds: 2);
-  Timer? _rssiTimer;
+  static const Duration _bleStateUpdateInterval = Duration(seconds: 2);
+  Timer? _bleStateTimer;
 
   // Public
   RxBool isConnected = false.obs;
@@ -48,8 +55,9 @@ class Module {
   String get moduleId => _moduleId;
   String get serialNumber => _serialNumber;
   ModuleType get moduleType => _moduleType;
-  StatusType get moduleStatus => _status;
   num get locationId => _locationId;
+
+  // Get Device Details from BLE
   RxInt get rssi => _rssi;
 
   RxInt get moduleBatteryLife {
@@ -58,6 +66,22 @@ class Module {
       return _bleManager!.batteryLifeValue;
     }
     return _batteryLevel;
+  }
+  // StatusType get moduleStatus => _status;
+  StatusType get moduleStatus {
+    if (!isConnected.value) {
+      _status = StatusType.disconnected;
+      return _status;
+    }
+
+    _refreshDeviceState();
+
+    if (_bleManager == null || !(_bleManager!.isTherapyActive.value)) {
+      _status = StatusType.connected;
+      return _status;
+    }
+    _status = StatusType.active;
+    return _status;
   }
 
   RxDouble get moduleIntensity {
@@ -95,8 +119,8 @@ class Module {
     }
     if (_device != null) {
       _isBle = true;
-      _bleManager = BleServiceManager(_device!);
-      _setupStatusListener(); 
+      // _bleManager = BleServiceManager(_device!);
+      // _setupStatusListener(); 
     }
   }
 
@@ -107,8 +131,8 @@ class Module {
       _statusSubscription = null;
 
       // Cancel the RSSI timer
-      _rssiTimer?.cancel();
-      _rssiTimer = null;
+      _bleStateTimer?.cancel();
+      _bleStateTimer = null;
       // Cancel the connection state listener first
       await _deviceConnectionState?.cancel();
       _deviceConnectionState = null;
@@ -139,40 +163,42 @@ class Module {
   }
 
   // Private Methods
-  void _setupStatusListener() {
-    _statusSubscription?.cancel(); // Cancel any existing subscription
-    _statusSubscription = _bleManager?.getStatus().listen((status) {
-      if (status == 'Active') {
-        _status = StatusType.active;
-      } else {
-        // When inactive, set to connected (not disconnected)
-        _status = StatusType.connected;
+  Future <void> _refreshDeviceState() async {
+    if (_isBle && isConnected.value && _device != null) {
+      try {
+        // Update RSSI Value
+        final newRssi = await _device!.readRssi();
+        _rssi.value = newRssi;
+
+        // Update Status
+        if (_bleManager != null) {
+          _status = _bleManager!.isTherapyActive.value 
+            ? StatusType.active 
+            : StatusType.connected;
+        }
+
+        // Refresh all BLE values
+        await _bleManager?.refreshValues();
+      } catch (e) {
+        print('Error refreshing device state: $e');
+        _rssi.value = -100; // Reset to minimum value on error
       }
-    }, onError: (error) {
-      print('Error in status stream: $error');
-    });
+    }
   }
 
-  void _manageRssiUpdates() {
+
+  void _manageBleStateUpdates() {
     if (_isBle && isConnected.value && _device != null) {
       // Start RSSI updates if not already running
-      if (_rssiTimer == null || !_rssiTimer!.isActive) {
-        _rssiTimer = Timer.periodic(_rssiUpdateInterval, (_) async {
-          try {
-            if (isConnected.value && _device != null) {
-              final newRssi = await _device!.readRssi();
-              _rssi.value = newRssi;
-            }
-          } catch (e) {
-            print('Error reading RSSI: $e');
-            _rssi.value = -100; // Reset to minimum value on error
-          }
+      if (_bleStateTimer == null || !_bleStateTimer!.isActive) {
+        _bleStateTimer = Timer.periodic(_bleStateUpdateInterval, (_) async {
+          await _refreshDeviceState();
         });
       }
     } else {
       // Stop RSSI updates if not connected
-      _rssiTimer?.cancel();
-      _rssiTimer = null;
+      _bleStateTimer?.cancel();
+      _bleStateTimer = null;
       _rssi.value = -100; // Reset to minimum value when disconnected
     }
   }
@@ -205,14 +231,14 @@ class Module {
     _reconnectAttempts = 0; // Reset reconnect attempts on successful connection
 
     _bleManager ??= BleServiceManager(_device!); // Initialize BLE manager if not available
-    _manageRssiUpdates(); // Start RSSI updates
+    _manageBleStateUpdates(); // Start RSSI updates
   }
 
   Future<void> _handleDisconnection() async {
     print('[MODULE] Abrupt Disconnect from device');
     isConnected.value = false;
     _status = StatusType.disconnected;
-    _manageRssiUpdates(); // This will stop RSSI updates
+    _manageBleStateUpdates(); // This will stop RSSI updates
 
     // Clean Up BLE manager to avoid memory leaks
     _bleManager?.dispose();
@@ -226,7 +252,7 @@ class Module {
     print('Connection error: $error');
     isConnected.value = false;
     _status = StatusType.disconnected;
-    _manageRssiUpdates(); // This will stop RSSI updates
+    _manageBleStateUpdates(); // This will stop RSSI updates
 
     _bleManager?.dispose();
     _bleManager = null;
@@ -278,9 +304,11 @@ class Module {
       throw Exception('Cannot send command to disconnected module');
     }
 
+    // Update Local Values
     targetIntensity.value = intensity;
     targetTime.value = targetT;
 
+    // Send to BLE Device
     _bleManager?.setIntensity(intensity.toInt());
     _bleManager?.setTargetTime(((targetT*60).toInt())); // TARGET TIME IS READ IN MINUTES
 
@@ -325,6 +353,7 @@ class BleServiceManager {
   RxDouble targetTimeValue = 0.0.obs;
   RxDouble elapsedTimeValue = 0.0.obs;
   RxInt batteryLifeValue = 0.obs;
+  RxString statusValue = ''.obs;
 
   // Stream subscriptions
   StreamSubscription<String>? _statusSubscription;
@@ -332,7 +361,10 @@ class BleServiceManager {
   StreamSubscription<int>? _batterySubscription;
 
   // Private
-  bool _isTherapyActive = false;
+  RxBool _isTherapyActive = false.obs;
+
+  // Getter
+  RxBool get isTherapyActive => _isTherapyActive;
 
   // Constructor
   BleServiceManager(this.device) {
@@ -354,7 +386,7 @@ class BleServiceManager {
       elapsedTimeValue.close();
 
       // Reset state
-      _isTherapyActive = false;
+      _isTherapyActive.value = false;
       _statusSubscription = null;
       _elapsedTimeSubscription = null;
       _batterySubscription = null;
@@ -369,9 +401,10 @@ class BleServiceManager {
   void _initStatusMonitoring() {
     _statusSubscription = getStatus().listen((status) {
       // Handle status changes
+      statusValue = status.obs;
       if (status == 'Active') {
         _startElapsedTimeMonitoring();
-        _isTherapyActive = true;
+        _isTherapyActive.value = true;
       } else {
         _stopElapsedTimeMonitoring();
       }
@@ -390,7 +423,7 @@ class BleServiceManager {
   }
 
   void _startElapsedTimeMonitoring() {
-    if (!_isTherapyActive) {_elapsedTimeSubscription?.cancel();} // Cancel any existing subscription
+    if (!_isTherapyActive.value) {_elapsedTimeSubscription?.cancel();} // Cancel any existing subscription
     
     _elapsedTimeSubscription = getTimeElapsed().listen((time) {
       elapsedTimeValue.value = time;
@@ -403,12 +436,21 @@ class BleServiceManager {
     _elapsedTimeSubscription?.cancel();
     _elapsedTimeSubscription = null;
     elapsedTimeValue.value = 0.0; // Reset elapsed time when not active
-    _isTherapyActive = false;
+    _isTherapyActive.value = false;
   }
 
   Future<void> refreshValues() async {
     intensityValue.value = (await getIntensity());
     targetTimeValue.value = (await getTargetTime());
+    batteryLifeValue.value = (await readBatteryLevel());
+    statusValue.value = (await readStatus());
+
+    if (statusValue.value == 'Active') {
+      _startElapsedTimeMonitoring();
+      _isTherapyActive.value = true;
+    } else {
+      _stopElapsedTimeMonitoring();
+    }
   }
 
   // UTF-8 String Helper Methods
@@ -424,6 +466,13 @@ class BleServiceManager {
   Stream<int> getBatteryLevel() {
     return _setupNotification(batteryLevelChar, moduleInfoService)
         .map((data) => int.parse(_decodeUtf8(data))); // First byte is battery level (0-100)
+  }
+
+  Future<int> readBatteryLevel() async {
+    final data = await _readCharacteristic(batteryLevelChar, moduleInfoService);
+    final value = int.parse(_decodeUtf8(data)); // CONVERT SECONDS TO MINUTES
+    batteryLifeValue = value.obs;
+    return value;
   }
 
   // Therapy Control Service Methods
@@ -462,6 +511,13 @@ class BleServiceManager {
   Stream<String> getStatus() {
     return _setupNotification(statusChar, therapyControlService)
         .map((data) => _decodeUtf8(data));
+  }
+
+  Future<String> readStatus() async {
+    final data = await _readCharacteristic(statusChar, therapyControlService);
+    final value = _decodeUtf8(data); // CONVERT SECONDS TO MINUTES
+    statusValue = value.obs;
+    return value;
   }
 
   // Module Information Service Methods
