@@ -7,7 +7,8 @@ import 'dart:async';
 
 class BleController extends GetxController {
   // Private
-  final List<String> _targetDevicePrefixes = ['LM Health'];
+  //final List<String> _targetDevicePrefixes = ['LM Health'];
+  final List<String> _targetDevicePrefixes = [''];
   Map<ModuleType, ModuleManager> moduleManagers;
 
   // Target Service and Characteristic UUIDs
