@@ -25,6 +25,11 @@ public:
     void setTargetTimeCallback(void (*callback)(unsigned int));
     void setTimeStampCallback(void (*callback)(const String&));
     void setUserIdCallback(void (*callback)(const String&));
+
+    void onIntensityWrite(BLEDevice central, BLECharacteristic characteristic);
+    void onTargetTimeWrite(BLEDevice central, BLECharacteristic characteristic);
+    void onTimeStampWrite(BLEDevice central, BLECharacteristic characteristic);
+    void onUserIdWrite(BLEDevice central, BLECharacteristic characteristic);
     
     void update();
 
@@ -46,10 +51,17 @@ private:
     //BLEDescriptor _clientConfigDesc;
     
     // Callbacks
-    void (*_intensityCallback)(byte);
-    void (*_targetTimeCallback)(unsigned int);
-    void (*_timeStampCallback)(const String&);
-    void (*_userIdCallback)(const String&);
+    void (*_intensityCallback)(byte) = nullptr;
+    void (*_targetTimeCallback)(unsigned int) = nullptr;
+    void (*_timeStampCallback)(const String&) = nullptr;
+    void (*_userIdCallback)(const String&) = nullptr;
+
+    static TherapyService* _instance;
+
+    static void intensityWriteHandler(BLEDevice central, BLECharacteristic characteristic);
+    static void targetTimeWriteHandler(BLEDevice central, BLECharacteristic characteristic);
+    static void timeStampWriteHandler(BLEDevice central, BLECharacteristic characteristic);
+    static void userIdWriteHandler(BLEDevice central, BLECharacteristic characteristic);
     
     void setupCharacteristics();
     void initializeValues();
