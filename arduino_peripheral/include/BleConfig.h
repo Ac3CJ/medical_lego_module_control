@@ -26,7 +26,11 @@
 
 // Device Configuration
 #define DEVICE_NAME "LM Health Physical"
-#define DEFAULT_INTENSITY 50
+#define DEVICE_ID "TMP_002"
+#define DEVICE_LOCATION 0x01
+#define DEVICE_FIRMWARE_VERSION "1.0.0"
+
+#define DEFAULT_INTENSITY 0x32 // 50%
 #define DEFAULT_TARGET_TIME 300 // 5 minutes
 
 #endif

@@ -22,8 +22,8 @@ private:
     BLEService _service;
     
     BLEStringCharacteristic _deviceIdChar;
-    BLEByteCharacteristic _locationIdChar;
-    BLEByteCharacteristic _batteryLifeChar;
+    BLECharacteristic _locationIdChar;
+    BLECharacteristic _batteryLifeChar;
     BLEStringCharacteristic _firmwareVersionChar;
     
     

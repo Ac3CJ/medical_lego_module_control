@@ -1,10 +1,11 @@
 #include "ble/ModuleInfoService.h"
+#include "BleUtils.h"
 
 ModuleInfoService::ModuleInfoService() 
     : _service(MODULE_INFO_SERVICE_UUID),
       _deviceIdChar(DEVICE_ID_UUID, BLERead, 50),
-      _locationIdChar(LOCATION_ID_UUID, BLERead),
-      _batteryLifeChar(BATTERY_LIFE_UUID, BLERead | BLENotify),
+      _locationIdChar(LOCATION_ID_UUID, BLERead, 3),
+      _batteryLifeChar(BATTERY_LIFE_UUID, BLERead | BLENotify, 3),
       _firmwareVersionChar(FIRMWARE_VERSION_UUID, BLERead, 20) {}
 
 BLEService& ModuleInfoService::getService() {
@@ -29,10 +30,10 @@ void ModuleInfoService::setupCharacteristics() {
 
 void ModuleInfoService::initializeValues() {
     // Set default values
-    _deviceIdChar.setValue("TMP-001");
-    _locationIdChar.setValue(1);
-    _batteryLifeChar.setValue(100); // 100% charged
-    _firmwareVersionChar.setValue("1.0.0");
+    setDeviceId(DEVICE_ID);
+    setLocationId(DEVICE_LOCATION);
+    setBatteryLife(0x64); // 100% Charge
+    setFirmwareVersion(DEVICE_FIRMWARE_VERSION);
 }
 
 void ModuleInfoService::setDeviceId(const String& id) {
@@ -42,13 +43,21 @@ void ModuleInfoService::setDeviceId(const String& id) {
 }
 
 void ModuleInfoService::setLocationId(byte location) {
-        _locationIdChar.setValue(location);
+    byte byteArray[3];
+    size_t length;
+
+    BleUtils::byteToUtf8(location, byteArray, length);
+    _locationIdChar.setValue(byteArray, length);
 }
 
 void ModuleInfoService::setBatteryLife(byte level) {
     // Constrain to 0-100%
     byte constrainedLevel = constrain(level, 0, 100);
-    _batteryLifeChar.setValue(constrainedLevel);
+    byte byteArray[3];
+    size_t length;
+
+    BleUtils::byteToUtf8(constrainedLevel, byteArray, length);
+    _batteryLifeChar.setValue(byteArray, length);
 }
 
 void ModuleInfoService::setFirmwareVersion(const String& version) {
@@ -64,9 +73,16 @@ void ModuleInfoService::update() {
     
     if (millis() - lastUpdate >= updateInterval) {
         lastUpdate = millis();
-        byte currentBattery = _batteryLifeChar.value();
+        size_t length = _batteryLifeChar.valueLength();
+        byte currentBattery = BleUtils::utf8ToByte(_batteryLifeChar.value(), length);
+        
         if (currentBattery > 0) {
-            setBatteryLife(currentBattery - 1);
+            currentBattery--;
+            setBatteryLife(currentBattery);
+        }
+        else {
+            currentBattery = 0x64;
+            setBatteryLife(currentBattery);
         }
     }
 }

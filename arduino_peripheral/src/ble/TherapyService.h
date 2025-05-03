@@ -16,7 +16,7 @@ public:
     void setTimeElapsed(unsigned int value);
     void setIntensity(byte value);
     void setTargetTime(unsigned int value);
-    void setStatus(byte value);
+    void setStatus(bool value);
     void setTimeStamp(const String& value);
     void setUserId(const String& value);
     
@@ -33,9 +33,9 @@ private:
     
     // Characteristics
     BLECharacteristic _timeElapsedChar;
-    BLEByteCharacteristic _intensityChar;
-    BLEUnsignedIntCharacteristic _targetTimeChar;
-    BLEByteCharacteristic _statusChar;
+    BLECharacteristic _intensityChar;
+    BLECharacteristic _targetTimeChar;
+    BLECharacteristic _statusChar;
     BLEStringCharacteristic _timeStampChar;
     BLEStringCharacteristic _userIdChar;
     

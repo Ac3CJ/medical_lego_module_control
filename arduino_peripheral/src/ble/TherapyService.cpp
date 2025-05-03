@@ -7,9 +7,9 @@ TherapyService::TherapyService()
     : _service(THERAPY_CONTROL_SERVICE_UUID),
       _timeElapsedChar(TIME_ELAPSED_UUID, BLERead | BLENotify, sizeof(unsigned int)),
       //_timeElapsedChar(TIME_ELAPSED_UUID, BLERead | BLENotify),
-      _intensityChar(INTENSITY_UUID, BLERead | BLEWrite | BLENotify),
-      _targetTimeChar(TARGET_TIME_UUID, BLERead | BLEWrite | BLENotify),
-      _statusChar(STATUS_UUID, BLERead | BLENotify),
+      _intensityChar(INTENSITY_UUID, BLERead | BLEWrite | BLENotify, 3), // Set to 3 since 100% is the maximum
+      _targetTimeChar(TARGET_TIME_UUID, BLERead | BLEWrite | BLENotify, sizeof(unsigned int)),
+      _statusChar(STATUS_UUID, BLERead | BLENotify, 1), // Set to 1 since there will only be 2 modes
       _timeStampChar(TIME_STAMP_UUID, BLERead | BLEWrite, 20),
       _userIdChar(USER_ID_UUID, BLERead | BLEWrite, 50),
       _timeElapsedDesc(DESCRIPTION_UUID, "Time Elapsed in Seconds"),
@@ -42,21 +42,19 @@ void TherapyService::setupCharacteristics() {
 
 void TherapyService::initializeValues() {
     unsigned int initialTime = 0;
-    _timeElapsedChar.setValue((byte*)&initialTime, sizeof(initialTime));
-    _intensityChar.setValue(DEFAULT_INTENSITY);
-    _targetTimeChar.setValue(DEFAULT_TARGET_TIME);
-    _statusChar.setValue(0); // Idle
-    _timeStampChar.setValue("03-05-2025T00:00:00");
-    _userIdChar.setValue("CJ_02");
+    setTimeElapsed(initialTime);
+    setIntensity(DEFAULT_INTENSITY);
+    setTargetTime(DEFAULT_TARGET_TIME);
+    setStatus(false);
+    setTimeStamp("03-05-2025T00:00:00");
+    setUserId("CJ_02");
 }
 
 void TherapyService::setTimeElapsed(unsigned int value) {
     byte byteArray[sizeof(unsigned int)];
     size_t length;
 
-    BleUtils::uintToUtf8Bytes(value, byteArray, length);
-    //_timeElapsedChar.setValue((byte*)&value, sizeof(value));
-
+    BleUtils::uintToUtf8(value, byteArray, length);
     _timeElapsedChar.setValue(byteArray, length);
     
     // Debugging Messages
@@ -69,6 +67,38 @@ void TherapyService::setTimeElapsed(unsigned int value) {
     */
 }
 
+void TherapyService::setIntensity(byte value) {
+    byte byteArray[3];
+    size_t length;
+
+    BleUtils::byteToUtf8(value, byteArray, length);
+    _intensityChar.setValue(byteArray, length);
+}
+
+void TherapyService::setTargetTime(unsigned int value) {
+    byte byteArray[sizeof(unsigned int)];
+    size_t length;
+
+    BleUtils::uintToUtf8(value, byteArray, length);
+    _targetTimeChar.setValue(byteArray, length);
+}
+
+void TherapyService::setStatus(bool value) {
+    byte byteArray[1];
+    size_t length;
+
+    BleUtils::boolToUtf8(value, byteArray, length);
+    _statusChar.setValue(byteArray, length);
+}
+
+void TherapyService::setTimeStamp(const String& value) {
+    _timeStampChar.setValue(value);
+}
+
+void TherapyService::setUserId(const String& value) {
+    _userIdChar.setValue(value);
+}
+
 void TherapyService::update() {
     static unsigned long lastUpdate = 0;
     const unsigned long updateInterval = 1000;
@@ -77,8 +107,7 @@ void TherapyService::update() {
         lastUpdate = millis();
         
         // Read current value
-        unsigned int elapsedTime = 0;
-        elapsedTime = BleUtils::utf8BytesToUint(_timeElapsedChar.value(), 5);
+        unsigned int elapsedTime = BleUtils::utf8ToUint(_timeElapsedChar.value(), 4);
         elapsedTime++;
         setTimeElapsed(elapsedTime);
     }
