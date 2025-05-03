@@ -30,10 +30,10 @@ void ModuleInfoService::setupCharacteristics() {
 
 void ModuleInfoService::initializeValues() {
     // Set default values
-    setDeviceId(DEVICE_ID);
-    setLocationId(DEVICE_LOCATION);
+    setDeviceId(DeviceConfig::DEVICE_ID);
+    setLocationId(DeviceConfig::LOCATION);
     setBatteryLife(0x64); // 100% Charge
-    setFirmwareVersion(DEVICE_FIRMWARE_VERSION);
+    setFirmwareVersion(DeviceConfig::FIRMWARE_VERSION);
 }
 
 void ModuleInfoService::setDeviceId(const String& id) {

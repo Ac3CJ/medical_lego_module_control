@@ -25,12 +25,14 @@
 #define CLIENT_CONFIG_UUID   "2902"
 
 // Device Configuration
-#define DEVICE_NAME "LM Health Physical"
-#define DEVICE_ID "TMP_002"
-#define DEVICE_LOCATION 0x01
-#define DEVICE_FIRMWARE_VERSION "1.0.0"
+namespace DeviceConfig {
+    constexpr const char* NAME = "LM Health Physical";
+    constexpr const char* DEVICE_ID = "TMP_002";
+    constexpr byte LOCATION = 0x01;
+    constexpr const char* FIRMWARE_VERSION = "1.0.0";
 
-#define DEFAULT_INTENSITY 0x32 // 50%
-#define DEFAULT_TARGET_TIME 300 // 5 minutes
+    constexpr byte DEFAULT_INTENSITY = 0x32;  // 50%
+    constexpr unsigned int DEFAULT_TARGET_TIME = 300; // 5 minutes
+}
 
 #endif

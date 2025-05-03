@@ -14,8 +14,8 @@ bool BleManager::begin() {
 }
 
 void BleManager::setupBle() {
-    BLE.setDeviceName(DEVICE_NAME);
-    BLE.setLocalName(DEVICE_NAME);
+    BLE.setDeviceName(DeviceConfig::NAME);
+    BLE.setLocalName(DeviceConfig::NAME);
     BLE.setAppearance(0x0000); // Generic appearance
     
     // Add services

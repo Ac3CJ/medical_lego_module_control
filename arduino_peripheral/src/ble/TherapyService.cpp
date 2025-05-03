@@ -43,8 +43,8 @@ void TherapyService::setupCharacteristics() {
 void TherapyService::initializeValues() {
     unsigned int initialTime = 0;
     setTimeElapsed(initialTime);
-    setIntensity(DEFAULT_INTENSITY);
-    setTargetTime(DEFAULT_TARGET_TIME);
+    setIntensity(DeviceConfig::DEFAULT_INTENSITY);
+    setTargetTime(DeviceConfig::DEFAULT_TARGET_TIME);
     setStatus(false);
     setTimeStamp("03-05-2025T00:00:00");
     setUserId("CJ_02");
