@@ -5,8 +5,8 @@
 
 TherapyService::TherapyService() 
     : _service(THERAPY_CONTROL_SERVICE_UUID),
-      //_timeElapsedChar(TIME_ELAPSED_UUID, BLERead | BLENotify, 5),
-      _timeElapsedChar(TIME_ELAPSED_UUID, BLERead | BLENotify),
+      _timeElapsedChar(TIME_ELAPSED_UUID, BLERead | BLENotify, sizeof(unsigned int)),
+      //_timeElapsedChar(TIME_ELAPSED_UUID, BLERead | BLENotify),
       _intensityChar(INTENSITY_UUID, BLERead | BLEWrite | BLENotify),
       _targetTimeChar(TARGET_TIME_UUID, BLERead | BLEWrite | BLENotify),
       _statusChar(STATUS_UUID, BLERead | BLENotify),
@@ -28,11 +28,8 @@ void TherapyService::setupService() {
 void TherapyService::setupCharacteristics() {
     // Add descriptors
     _timeElapsedChar.addDescriptor(_timeElapsedDesc);
-    //_timeElapsedChar.addDescriptor(_clientConfigDesc);
     _intensityChar.addDescriptor(_intensityDesc);
-    //_intensityChar.addDescriptor(_clientConfigDesc);
     _targetTimeChar.addDescriptor(_targetTimeDesc);
-    // _targetTimeChar.addDescriptor(_clientConfigDesc);
     
     // Add characteristics to service
     _service.addCharacteristic(_timeElapsedChar);
@@ -44,7 +41,8 @@ void TherapyService::setupCharacteristics() {
 }
 
 void TherapyService::initializeValues() {
-    _timeElapsedChar.setValue(0);
+    unsigned int initialTime = 0;
+    _timeElapsedChar.setValue((byte*)&initialTime, sizeof(initialTime));
     _intensityChar.setValue(DEFAULT_INTENSITY);
     _targetTimeChar.setValue(DEFAULT_TARGET_TIME);
     _statusChar.setValue(0); // Idle
@@ -53,41 +51,35 @@ void TherapyService::initializeValues() {
 }
 
 void TherapyService::setTimeElapsed(unsigned int value) {
-    byte byteArray[5]; // Maximum 6 bytes needed for UTF-8 representation of unsigned int
+    byte byteArray[sizeof(unsigned int)];
     size_t length;
-    
-    BleUtils::uintToUtf8Bytes(value, byteArray, length);
-    //_timeElapsedChar.setValue(byteArray, length);
 
+    BleUtils::uintToUtf8Bytes(value, byteArray, length);
+    //_timeElapsedChar.setValue((byte*)&value, sizeof(value));
+
+    _timeElapsedChar.setValue(byteArray, length);
+    
+    // Debugging Messages
+    /*     
     Serial.println("Time Elapsed Updating");
     for (int i = 0; i < length; i++) {
         Serial.printf("Value: %d | 0x%x\n", byteArray[i], byteArray[i]);
     }
-    Serial.printf("Real Value: %d | 0x%x\n", value, value);
-
-    _timeElapsedChar.setValue(value);
-
+    Serial.printf("Real Value: %d | 0x%x\n", value, value); 
+    */
 }
 
 void TherapyService::update() {
-    // Placeholder for periodic updates
     static unsigned long lastUpdate = 0;
     const unsigned long updateInterval = 1000;
     
     if (millis() - lastUpdate >= updateInterval) {
         lastUpdate = millis();
         
-        // Get current value by reading the byte array
-        //const byte* currentValue = _timeElapsedChar.value();
-        //size_t length = _timeElapsedChar.valueLength();
-        
-        // Convert back to unsigned int and increment timer
+        // Read current value
         unsigned int elapsedTime = 0;
-        //memcpy(&elapsedTime, currentValue, sizeof(unsigned int));
-        //elapsedTime = BleUtils::utf8BytesToUint(_timeElapsedChar.value(), 5);
-        elapsedTime = _timeElapsedChar.value();
+        elapsedTime = BleUtils::utf8BytesToUint(_timeElapsedChar.value(), 5);
         elapsedTime++;
         setTimeElapsed(elapsedTime);
-        //Serial.printf("Elapsed Time: %f", elapsedTime);
     }
 }

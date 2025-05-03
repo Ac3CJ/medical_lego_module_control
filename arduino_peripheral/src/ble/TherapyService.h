@@ -32,8 +32,7 @@ private:
     BLEService _service;
     
     // Characteristics
-    //BLECharacteristic _timeElapsedChar;
-    BLEUnsignedIntCharacteristic _timeElapsedChar;
+    BLECharacteristic _timeElapsedChar;
     BLEByteCharacteristic _intensityChar;
     BLEUnsignedIntCharacteristic _targetTimeChar;
     BLEByteCharacteristic _statusChar;
