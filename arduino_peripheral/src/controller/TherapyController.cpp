@@ -77,8 +77,8 @@ void TherapyController::stopTherapy() {
     Serial.println("Therapy stopped");
 
     if (_therapyService) {
-        //_intensity = 0;
-        //_targetTime = 0;
+        _intensity = 0;
+        _targetTime = 0;
         
         //_therapyService->setIntensity(0);
         //_therapyService->setTargetTime((unsigned int) 0);

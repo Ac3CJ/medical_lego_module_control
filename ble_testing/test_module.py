@@ -1,54 +1,20 @@
 #!/usr/bin/python3
 
-"""Copyright (c) 2019, Douglas Otwell
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-Found From: https://github.com/Douglas6/cputemp/blob/master/cputemp.py
-"""
-
-""" Service & Characteristic Hierarchy
-- Module Information Service
-    - Module ID
-    - Module Status
-    - Module Location
-    - Module Battery Life
-    - Module Firmware Version
-
-- Therapy Service
-    - Therapy time
-    - Therapy Intensity
-
-"""
-
 # Bluetooth Related
 import dbus
 from advertisement import Advertisement
 from service import Application, Service, Characteristic, Descriptor
 
 # Functionality 
-import sys
 import time
 import threading
-import subprocess
 
 GATT_CHRC_IFACE = "org.bluez.GattCharacteristic1"
 NOTIFY_TIMEOUT = 5000
+
+VIRTUAL_DEVICE_NAME = "LM Health Virtual"
+VIRTUAL_DEVICE_ID = "TMP-VIR"
+VIRTUAL_LOCATION = 1
 
 class bcolors:
     HEADER = '\033[95m'
@@ -79,15 +45,7 @@ def print_progress_bar(iteration, total, prefix='', suffix='', length=30, fill='
     print(f'\r{prefix} |{bar}| {percent}% {suffix}', end='\r')
     # Print New Line on Complete
     if iteration == total: 
-        print()    
-
-def bluetooth_power(state):
-    state_str = "on" if state else "off"
-    try:
-        subprocess.run(["bluetoothctl", "power", state_str], check=True)
-        return True
-    except subprocess.CalledProcessError:
-        return False       
+        print()         
 
 # ===============================================================================================================
 # =============================================== ADVERTISEMENT =================================================
@@ -97,7 +55,7 @@ class TherapyAdvertisement(Advertisement):
     def __init__(self, index):
         Advertisement.__init__(self, index, "peripheral")
         # self.add_local_name("LMTherapy-Module")
-        self.add_local_name("LM Health Virtual")
+        self.add_local_name(VIRTUAL_DEVICE_NAME)
         self.include_tx_power = True
 
 # ===============================================================================================================
@@ -108,10 +66,6 @@ class InfoService(Service):
     THERAPY_SVC_UUID = "00000011-710e-4a5b-8d75-3e5b444bc3cf"
 
     def __init__(self, index):
-        self.intensity = 0
-        self.elapsedTime = 0
-        self.targetTime = 0
-        self.isTherapyActive = False
 
         Service.__init__(self, index, self.THERAPY_SVC_UUID, True)
         self.add_characteristic(DeviceIdCharacteristic(self))
@@ -128,7 +82,7 @@ class InfoService(Service):
 
 class DeviceIdCharacteristic(Characteristic):
     DEVICE_ID_CHARACTERISTIC_UUID = "00000012-710e-4a5b-8d75-3e5b444bc3cf"
-    DEVICE_ID_CHARACTERISTIC_VALUE = "TMP-VIR"
+    DEVICE_ID_CHARACTERISTIC_VALUE = VIRTUAL_DEVICE_ID
 
     def __init__(self, service):
         Characteristic.__init__(
@@ -147,7 +101,7 @@ class DeviceIdCharacteristic(Characteristic):
 
 class LocationIdCharacteristic(Characteristic):
     LOCATION_ID_CHARACTERISTIC_UUID = "00000013-710e-4a5b-8d75-3e5b444bc3cf"
-    LOCATION_ID_CHARACTERISTIC_VALUE = 1
+    LOCATION_ID_CHARACTERISTIC_VALUE = VIRTUAL_LOCATION
 
     def __init__(self, service):
         Characteristic.__init__(
@@ -320,6 +274,7 @@ class TimeCharacteristic(Characteristic):
                     # Reset Local Vars
                     self.moduleTime = 0
                     self.startTime = time.time()
+                    print(f"\n{bcolors.HEADER}[INFO] New Intensity: {self.service.getIntensity()} | New Target Time: {self.service.getTargetTime()}{bcolors.ENDC}")
 
     def getElapsedTime(self):
         value = []
@@ -391,7 +346,6 @@ class IntensityCharacteristic(Characteristic):
 
     def __init__(self, service):
         self.notifying = False
-        self.intensity = 0
 
         Characteristic.__init__(
                 self, self.UNIT_CHARACTERISTIC_UUID,
@@ -400,14 +354,13 @@ class IntensityCharacteristic(Characteristic):
 
     def getIntensity(self):
         value = []
-        strValue = str(self.intensity)
+        strValue = str(self.service.getIntensity())
         for c in strValue:
             value.append(dbus.Byte(c.encode()))
         return value
 
     def setIntensityCallback(self):
         if self.notifying:
-            self.intensity = self.service.getIntensity()
 
             value = self.getIntensity()
             self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
@@ -419,8 +372,6 @@ class IntensityCharacteristic(Characteristic):
             return
 
         self.notifying = True
-
-        self.intensity = self.service.getIntensity()
 
         value = self.getIntensity()
         self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
@@ -438,7 +389,6 @@ class IntensityCharacteristic(Characteristic):
             strValue = ''.join([chr(byte) for byte in value])
             newIntensity = int(strValue)
 
-            self.intensity = newIntensity
             self.service.setIntensity(newIntensity)  # Update in parent service
 
             # Check to make sure Therapy doesn't start prematurely
@@ -452,7 +402,7 @@ class IntensityCharacteristic(Characteristic):
 
             self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": self.ReadValue({})}, [])
 
-            print(f"[INFO] Intensity updated to: {self.intensity}")
+            print(f"[INFO] Intensity updated to: {self.service.getIntensity()}")
 
         except Exception as e:
             print(f"[ERROR] Failed to write Intensity value: {e}")
@@ -483,7 +433,6 @@ class TargetTimeCharacteristic(Characteristic):
 
     def __init__(self, service):
         self.notifying = False
-        self.targetTime = 0
 
         Characteristic.__init__(
                 self, self.UNIT_CHARACTERISTIC_UUID,
@@ -492,14 +441,13 @@ class TargetTimeCharacteristic(Characteristic):
 
     def getTargetTime(self):
         value = []
-        strValue = str(self.targetTime)
+        strValue = str(self.service.getTargetTime())
         for c in strValue:
             value.append(dbus.Byte(c.encode()))
         return value
 
     def setTargetTimeCallback(self):
         if self.notifying:
-            self.targetTime = self.service.getTargetTime()
 
             value = self.getTargetTime()
             self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
@@ -511,8 +459,6 @@ class TargetTimeCharacteristic(Characteristic):
             return
 
         self.notifying = True
-
-        self.targetTime = self.service.getTargetTime()
 
         value = self.getTargetTime()
         self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
@@ -530,7 +476,6 @@ class TargetTimeCharacteristic(Characteristic):
             strValue = ''.join([chr(byte) for byte in value])
             newTargetTime = int(strValue)
 
-            self.targetTime = newTargetTime
             self.service.setTargetTime(newTargetTime)  # Update in parent service
 
             # Check to make sure Therapy doesn't start prematurely
@@ -544,7 +489,7 @@ class TargetTimeCharacteristic(Characteristic):
 
             self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": self.ReadValue({})}, [])
 
-            print(f"[INFO] Target Time updated to: {self.targetTime}")
+            print(f"[INFO] Target Time updated to: {self.service.getTargetTime()}")
 
         except Exception as e:
             print(f"[ERROR] Failed to write Target Time value: {e}")

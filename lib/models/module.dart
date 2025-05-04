@@ -437,6 +437,9 @@ class BleServiceManager {
     _elapsedTimeSubscription = null;
     elapsedTimeValue.value = 0.0; // Reset elapsed time when not active
     _isTherapyActive.value = false;
+
+    intensityValue.value = 0;
+    targetTimeValue.value = 0;
   }
 
   Future<void> refreshValues() async {

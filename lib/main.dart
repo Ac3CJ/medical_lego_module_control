@@ -310,7 +310,7 @@ class _HomePageState extends State<HomePage> {
                                     style: const TextStyle(fontSize: 12),
                                   )),
                                   Obx(() => Text(
-                                    'Target Time: ${module.moduleTime.value.toInt()} Min',
+                                    'Target Time: ${module.moduleTime.value.toStringAsFixed(1)} Min',
                                     style: const TextStyle(fontSize: 12),
                                   )),
                                   Obx(() => Text(
