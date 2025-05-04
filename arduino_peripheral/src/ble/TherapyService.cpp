@@ -8,7 +8,7 @@ TherapyService::TherapyService()
       _timeElapsedChar(TIME_ELAPSED_UUID, BLERead | BLENotify, sizeof(unsigned int)),
       _intensityChar(INTENSITY_UUID, BLERead | BLEWrite | BLENotify, 3), // Set to 3 since 100% is the maximum
       _targetTimeChar(TARGET_TIME_UUID, BLERead | BLEWrite | BLENotify, sizeof(unsigned int)),
-      _statusChar(STATUS_UUID, BLERead | BLENotify, 1), // Set to 1 since there will only be 2 modes
+      _statusChar(STATUS_UUID, BLERead | BLENotify, 20), // Set to 1 since there will only be 2 modes NOTE: CHANGE TO BOOL LATER
       _timeStampChar(TIME_STAMP_UUID, BLERead | BLEWrite, 20),
       _userIdChar(USER_ID_UUID, BLERead | BLEWrite, 50),
       _timeElapsedDesc(DESCRIPTION_UUID, "Time Elapsed in Seconds"),
@@ -50,7 +50,7 @@ void TherapyService::initializeValues() {
     setTimeElapsed(initialTime);
     setIntensity(DeviceConfig::DEFAULT_INTENSITY);
     setTargetTime(DeviceConfig::DEFAULT_TARGET_TIME);
-    setStatus(false);
+    setStatus(DeviceConfig::DEFAULT_STATUS);
     setTimeStamp(DeviceConfig::DEFAULT_TIMESTAMP);
     setUserId(DeviceConfig::DEFAULT_USER_ID);
 }
@@ -61,9 +61,6 @@ void TherapyService::onIntensityWrite(BLEDevice central, BLECharacteristic chara
     byte writtenValue[3];  // 3 bytes based on your UTF-8 encoding
     characteristic.readValue(writtenValue, sizeof(writtenValue));
     byte intensity = BleUtils::utf8ToByte(writtenValue, sizeof(writtenValue));
-    
-    Serial.print("Intensity updated from app: ");
-    Serial.println(intensity);
 
     setIntensity(intensity);
 
@@ -74,22 +71,12 @@ void TherapyService::onIntensityWrite(BLEDevice central, BLECharacteristic chara
 
 void TherapyService::onTargetTimeWrite(BLEDevice central, BLECharacteristic characteristic) {
     int length = characteristic.valueLength();  // get actual bytes sent
-    length = min(length, 4);  // cap it to 4 bytes for safety
+    length = min(length, 4);  // Cap to 4 bytes for safety
     
     const uint8_t* data = characteristic.value();  // raw data pointer
-    
-    // For debug: print raw bytes
-    Serial.print("Raw target time bytes: ");
-    for (int i = 0; i < length; i++) {
-        Serial.printf("0x%x | ", data[i]);
-    }
-    Serial.println();
 
     // Convert the received UTF-8 bytes to unsigned int
     unsigned int targetTime = BleUtils::utf8ToUint(data, length);
-
-    Serial.print("Target time updated from app: ");
-    Serial.println(targetTime);
 
     setTargetTime(targetTime);
 
@@ -107,9 +94,6 @@ void TherapyService::onTimeStampWrite(BLEDevice central, BLECharacteristic chara
         timeStamp += (char)data[i];  // append each byte as char
     }
 
-    Serial.print("Timestamp updated from app: ");
-    Serial.println(timeStamp);
-
     setTimeStamp(timeStamp);
 
     if (_timeStampCallback) {
@@ -125,9 +109,6 @@ void TherapyService::onUserIdWrite(BLEDevice central, BLECharacteristic characte
     for (int i = 0; i < length; i++) {
         userId += (char)data[i];
     }
-
-    Serial.print("User ID updated from app: ");
-    Serial.println(userId);
 
     setUserId(userId);
 
@@ -162,21 +143,22 @@ void TherapyService::userIdWriteHandler(BLEDevice central, BLECharacteristic cha
 
 // ======================================================== CALLBACKS ========================================================
 
-void TherapyService::setIntensityCallback(void (*callback)(byte)) {
+void TherapyService::setIntensityCallback(std::function<void(byte)> callback) {
     _intensityCallback = callback;
 }
 
-void TherapyService::setTargetTimeCallback(void (*callback)(unsigned int)) {
+void TherapyService::setTargetTimeCallback(std::function<void(unsigned int)> callback) {
     _targetTimeCallback = callback;
 }
 
-void TherapyService::setTimeStampCallback(void (*callback)(const String&)) {
+void TherapyService::setTimeStampCallback(std::function<void(const String&)> callback) {
     _timeStampCallback = callback;
 }
 
-void TherapyService::setUserIdCallback(void (*callback)(const String&)) {
+void TherapyService::setUserIdCallback(std::function<void(const String&)> callback) {
     _userIdCallback = callback;
 }
+
 
 // ======================================================== SET CHARACTERISTICS ========================================================
 
@@ -185,7 +167,7 @@ void TherapyService::setTimeElapsed(unsigned int value) {
     size_t length;
 
     BleUtils::uintToUtf8(value, byteArray, length);
-    _timeElapsedChar.setValue(byteArray, length);
+    _timeElapsedChar.writeValue(byteArray, length);
 }
 
 void TherapyService::setIntensity(byte value) {
@@ -193,7 +175,7 @@ void TherapyService::setIntensity(byte value) {
     size_t length;
 
     BleUtils::byteToUtf8(value, byteArray, length);
-    _intensityChar.setValue(byteArray, length);
+    _intensityChar.writeValue(byteArray, length);
 }
 
 void TherapyService::setTargetTime(unsigned int value) {
@@ -201,23 +183,19 @@ void TherapyService::setTargetTime(unsigned int value) {
     size_t length;
 
     BleUtils::uintToUtf8(value, byteArray, length);
-    _targetTimeChar.setValue(byteArray, length);
+    _targetTimeChar.writeValue(byteArray, length);
 }
 
-void TherapyService::setStatus(bool value) {
-    byte byteArray[1];
-    size_t length;
-
-    BleUtils::boolToUtf8(value, byteArray, length);
-    _statusChar.setValue(byteArray, length);
+void TherapyService::setStatus(const String& value) {
+    _statusChar.writeValue(value);
 }
 
 void TherapyService::setTimeStamp(const String& value) {
-    _timeStampChar.setValue(value);
+    _timeStampChar.writeValue(value);
 }
 
 void TherapyService::setUserId(const String& value) {
-    _userIdChar.setValue(value);
+    _userIdChar.writeValue(value);
 }
 
 void TherapyService::update() {

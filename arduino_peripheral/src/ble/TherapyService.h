@@ -2,6 +2,8 @@
 #define THERAPY_SERVICE_H
 
 #include <ArduinoBLE.h>
+#include <functional>
+
 #include "BleConfig.h"
 #include "BleUtils.h"
 
@@ -16,15 +18,15 @@ public:
     void setTimeElapsed(unsigned int value);
     void setIntensity(byte value);
     void setTargetTime(unsigned int value);
-    void setStatus(bool value);
+    void setStatus(const String& value);
     void setTimeStamp(const String& value);
     void setUserId(const String& value);
     
     // Callback setters
-    void setIntensityCallback(void (*callback)(byte));
-    void setTargetTimeCallback(void (*callback)(unsigned int));
-    void setTimeStampCallback(void (*callback)(const String&));
-    void setUserIdCallback(void (*callback)(const String&));
+    void setIntensityCallback(std::function<void(byte)> callback);
+    void setTargetTimeCallback(std::function<void(unsigned int)> callback);
+    void setTimeStampCallback(std::function<void(const String&)> callback);
+    void setUserIdCallback(std::function<void(const String&)> callback);
 
     void onIntensityWrite(BLEDevice central, BLECharacteristic characteristic);
     void onTargetTimeWrite(BLEDevice central, BLECharacteristic characteristic);
@@ -40,7 +42,7 @@ private:
     BLECharacteristic _timeElapsedChar;
     BLECharacteristic _intensityChar;
     BLECharacteristic _targetTimeChar;
-    BLECharacteristic _statusChar;
+    BLEStringCharacteristic _statusChar;
     BLEStringCharacteristic _timeStampChar;
     BLEStringCharacteristic _userIdChar;
     
@@ -51,10 +53,10 @@ private:
     //BLEDescriptor _clientConfigDesc;
     
     // Callbacks
-    void (*_intensityCallback)(byte) = nullptr;
-    void (*_targetTimeCallback)(unsigned int) = nullptr;
-    void (*_timeStampCallback)(const String&) = nullptr;
-    void (*_userIdCallback)(const String&) = nullptr;
+    std::function<void(byte)> _intensityCallback = nullptr;
+    std::function<void(unsigned int)> _targetTimeCallback = nullptr;
+    std::function<void(const String&)> _timeStampCallback = nullptr;
+    std::function<void(const String&)> _userIdCallback = nullptr;
 
     static TherapyService* _instance;
 

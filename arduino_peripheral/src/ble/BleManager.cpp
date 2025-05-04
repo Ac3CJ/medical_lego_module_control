@@ -1,12 +1,19 @@
 #include "BleManager.h"
 
-BleManager::BleManager(TherapyService& therapyService, ModuleInfoService& moduleInfoService) 
-    : _therapyService(therapyService), _moduleInfoService(moduleInfoService) {}
+BleManager::BleManager(TherapyService& therapyService, 
+                       ModuleInfoService& moduleInfoService,
+                       TherapyController& therapyController) 
+    : _therapyService(therapyService), 
+      _moduleInfoService(moduleInfoService),
+      _therapyController(therapyController) {}
 
 bool BleManager::begin() {
     if (!BLE.begin()) {
         return false;
     }
+
+    // Link service with controller
+    linkServiceAndController();
     
     setupBle();
     setConnectionParameters();
@@ -33,8 +40,28 @@ void BleManager::setConnectionParameters() {
 
 void BleManager::update() {
     BLE.poll();
+    _therapyController.update();
 }
 
 void BleManager::advertise() {
     BLE.advertise();
+}
+
+void BleManager::linkServiceAndController() {
+    // BLE writes → Controller callbacks
+    _therapyService.setTargetTimeCallback([this](unsigned int targetTime) {
+        _therapyController.onTargetTimeUpdated(targetTime);
+    });
+    _therapyService.setIntensityCallback([this](byte intensity) {
+        _therapyController.onIntensityUpdated(intensity);
+    });
+    _therapyService.setTimeStampCallback([this](const String& timeStamp) {
+        _therapyController.onTimeStampUpdated(timeStamp);
+    });
+    _therapyService.setUserIdCallback([this](const String& userId) {
+        _therapyController.onUserIdUpdated(userId);
+    });
+
+    // Controller → Service feedback
+    _therapyController.setTherapyService(&_therapyService);
 }
