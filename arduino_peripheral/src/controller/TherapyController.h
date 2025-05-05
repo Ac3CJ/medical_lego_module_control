@@ -50,7 +50,7 @@ private:
     const unsigned long _bleSyncInterval = 1000;  // 1 second
 
     unsigned long _lastBatteryUpdate = 0;
-    const unsigned long _batteryUpdateInterval = 2000; // 2 seconds
+    const unsigned long _batteryUpdateInterval = 5000; // 5 seconds
 
     // Pointers for Services
     TherapyService* _therapyService;

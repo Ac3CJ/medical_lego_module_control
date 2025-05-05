@@ -1,5 +1,8 @@
 #include "BleManager.h"
 
+void onBLEConnected(BLEDevice central);
+void onBLEDisconnected(BLEDevice central);
+
 BleManager::BleManager(TherapyService& therapyService, 
                        ModuleInfoService& moduleInfoService,
                        TherapyController& therapyController) 
@@ -11,6 +14,10 @@ bool BleManager::begin() {
     if (!BLE.begin()) {
         return false;
     }
+
+    // Set up connection event handlers
+    BLE.setEventHandler(BLEConnected, onBLEConnected);
+    BLE.setEventHandler(BLEDisconnected, onBLEDisconnected);
 
     // Link service with controller
     linkServiceAndController();
@@ -40,7 +47,7 @@ void BleManager::setConnectionParameters() {
 
 void BleManager::update() {
     BLE.poll();
-    _therapyController.update();
+    //_therapyController.update();
 }
 
 void BleManager::advertise() {
@@ -65,4 +72,22 @@ void BleManager::linkServiceAndController() {
     // Controller -> Service feedback
     _therapyController.setTherapyService(&_therapyService);
     _therapyController.setModuleInfoService(&_moduleInfoService);
+}
+
+// Implementation of the event handler functions
+void onBLEConnected(BLEDevice central) {
+    Serial.println("Device Connected");
+    // Try to read the central's name
+    if (central.hasLocalName()) {
+        Serial.print("Connected to: ");
+        Serial.println(central.localName());
+    } else {
+        Serial.print("Connected to device (MAC: ");
+        Serial.print(central.address());
+    }
+    
+}
+
+void onBLEDisconnected(BLEDevice central) {
+    Serial.println("Device Disconnected");
 }

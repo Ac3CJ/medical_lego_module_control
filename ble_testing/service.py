@@ -67,6 +67,29 @@ class Application(dbus.service.Object):
         self.next_index = 0
         dbus.service.Object.__init__(self, self.bus, self.path)
 
+        # Add signal receiver for connection monitoring
+        self.bus.add_signal_receiver(
+            self.on_properties_changed,
+            dbus_interface="org.freedesktop.DBus.Properties",
+            signal_name="PropertiesChanged",
+            path_keyword="path"
+        )
+
+    def on_properties_changed(self, interface, changed, invalidated, path):
+        if interface != "org.bluez.Device1":
+            return
+            
+        if "Connected" in changed:
+            self.connected = changed["Connected"]
+            if self.connected:
+                # Get the device object to extract MAC address
+                device_proxy = self.bus.get_object("org.bluez", path)
+                device_props = dbus.Interface(device_proxy, "org.freedesktop.DBus.Properties")
+                address = device_props.Get("org.bluez.Device1", "Address")
+                print(f"\nCENTRAL CONNECTED - MAC: {address}")
+            else:
+                print("\nCENTRAL DISCONNECTED")
+
     def get_path(self):
         return dbus.ObjectPath(self.path)
 

@@ -231,6 +231,7 @@ class Module {
     _reconnectAttempts = 0; // Reset reconnect attempts on successful connection
 
     _bleManager ??= BleServiceManager(_device!); // Initialize BLE manager if not available
+    _bleManager?.startBatteryMonitoring();
     _manageBleStateUpdates(); // Start RSSI updates
   }
 
@@ -413,10 +414,20 @@ class BleServiceManager {
     });
   }
 
+  void startBatteryMonitoring() {
+    _initBatteryMonitoring();
+    // Also read the initial value
+    readBatteryLevel().then((value) {
+      batteryLifeValue.value = value;
+    });
+  }
+
   void _initBatteryMonitoring() {
+    _batterySubscription?.cancel();
+    
     _batterySubscription = getBatteryLevel().listen((batteryLife) {
-      print('[MODULE] BATTERY LIFE: $batteryLife');
       batteryLifeValue.value = batteryLife;
+      print('[MODULE] BATTERY LIFE: ${batteryLifeValue.value}');
     }, onError: (error) {
       print('Error in battery level stream: $error');
     });
@@ -468,7 +479,7 @@ class BleServiceManager {
   // Battery Service Methods
   Stream<int> getBatteryLevel() {
     return _setupNotification(batteryLevelChar, moduleInfoService)
-        .map((data) => int.parse(_decodeUtf8(data))); // First byte is battery level (0-100)
+        .map((data) => int.parse(_decodeUtf8(data)));
   }
 
   Future<int> readBatteryLevel() async {

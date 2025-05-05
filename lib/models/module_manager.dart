@@ -94,11 +94,15 @@ class ModuleManager {
     _updateManagerStatus();
   }
 
-  void sendCommandToAll(double targetIntensity, double targetTime) {
+  Future<void> sendCommandToAll(double targetIntensity, double targetTime) async {
     moduleIntensity = targetIntensity;
     moduleTime = targetTime;
     for (var module in connectedModules) {
       module.sendCommand(targetIntensity, targetTime);
+      // Wait 100ms after sending each command (unless it's the last one)
+      if (module != connectedModules.last) {
+      await Future.delayed(Duration(milliseconds: 100));
+    }
     }
     _updateManagerStatus();
   }

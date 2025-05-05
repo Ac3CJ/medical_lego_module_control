@@ -8,6 +8,9 @@
 #include "ModuleInfoService.h"
 #include "controller/TherapyController.h"
 
+void onBLEConnected(BLEDevice central);
+void onBLEDisconnected(BLEDevice central);
+
 class BleManager {
 public:
     BleManager(TherapyService& therapyService, ModuleInfoService& moduleInfoService, TherapyController& therapyController);
