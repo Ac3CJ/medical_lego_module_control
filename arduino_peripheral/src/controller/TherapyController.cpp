@@ -28,42 +28,24 @@ void TherapyController::onTargetTimeUpdated(unsigned int targetTime) {
     _targetTime = targetTime;
     Serial.print("Controller: Target time updated: ");
     Serial.println(_targetTime);
-
-/*     // Start therapy if intensity is also set
-    if (_intensity > 0 && !_therapyActive) {
-        startTherapy();
-    } */
-
-    updateBleStatus();
 }
 
 void TherapyController::onIntensityUpdated(byte intensity) {
     _intensity = intensity;
     Serial.print("Controller: Intensity updated: ");
     Serial.println(_intensity);
-
-/*     // Start therapy if target time is also set
-    if (_targetTime > 0 && !_therapyActive) {
-        startTherapy();
-    } */
-
-    updateBleStatus();
 }
 
 void TherapyController::onTimeStampUpdated(const String& timeStamp) {
     _timeStamp = timeStamp;
     Serial.print("Controller: Time stamp updated: ");
     Serial.println(_timeStamp);
-
-    updateBleStatus();
 }
 
 void TherapyController::onUserIdUpdated(const String& userId) {
     _userId = userId;
     Serial.print("Controller: User ID updated: ");
     Serial.println(_userId);
-
-    updateBleStatus();
 }
 
 // ============================== GENERAL METHODS ==============================
@@ -73,10 +55,10 @@ void TherapyController::startTherapy() {
     _therapyActive = true;
     _therapyStartTime = millis();
     _elapsedTime = 0;
+    _status = "Active";
     Serial.println("Therapy started");
 
-    if (_therapyService) _therapyService->setStatus("Active");
-    _status = "Active";
+    if (_therapyService) _therapyService->setStatus(_status);
 }
 
 void TherapyController::stopTherapy() {
@@ -86,6 +68,7 @@ void TherapyController::stopTherapy() {
 
     _intensity = 0;
     _targetTime = 0;
+    _status = "Inactive";
     if (_therapyService) {
         // Bump these values
         _therapyService->setIntensity(1);
@@ -93,15 +76,12 @@ void TherapyController::stopTherapy() {
         delay(10);
         _therapyService->setIntensity(0);
         _therapyService->setTargetTime(0);
-        _therapyService->setStatus("Inactive");
+        _therapyService->setStatus(_status);
         _therapyService->setTimeElapsed(_elapsedTime);
     }
 
     // Reset elapsed time
     _elapsedTime = 0;
-
-    // Update last known status
-    _status = "Inactive";
 
     // Force BLE status sync
     updateBleStatus();
@@ -158,7 +138,6 @@ void TherapyController::updateBattery() {
         if (_batteryLife > 0) _batteryLife--;
         else _batteryLife = 0x64;
         _lastBatteryUpdate = millis();
-        //_moduleInfoService->updateBatteryLevel();
     }
 }
 
