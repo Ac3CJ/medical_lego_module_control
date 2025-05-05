@@ -37,7 +37,7 @@ class Module {
   StreamSubscription<String>? _statusSubscription;
 
   RxInt _batteryLevel = 0.obs;
-  RxBool _isActive = false.obs;
+  //RxBool _isActive = false.obs;
 
   // RSSI 
   RxInt _rssi = (-100).obs; // Initialize with a default low value
@@ -97,7 +97,7 @@ class Module {
       if (_bleManager == null) {return 0.0.obs;}
       return _bleManager!.targetTimeValue;
       }
-    return targetIntensity;  
+    return targetTime;  
   }
 
   RxDouble get moduleElapsedTime {
@@ -314,7 +314,7 @@ class Module {
 
     _bleManager?.refreshValues();
     _status = StatusType.active;
-    print('MAC: $_serialNumber\tModule ID: $_moduleId\tIntensity: ${intensity.toString()}\tTarget Time: ${targetT.toString()}');
+    print('[MODULE] MAC: $_serialNumber\tModule ID: $_moduleId\tIntensity: ${intensity.toString()}\tTarget Time: ${targetT.toString()}');
   }
 
   void addConnection(String deviceSerialNumber) {

@@ -29,7 +29,7 @@ void setup() {
 void loop() {
   bleManager.update();
   therapyController.update();
-  moduleInfoService.update();
+  //moduleInfoService.update();
 
   if (therapyController.getIsTherapyActive()) digitalWrite(LED_BUILTIN, HIGH);
   else digitalWrite(LED_BUILTIN, LOW);

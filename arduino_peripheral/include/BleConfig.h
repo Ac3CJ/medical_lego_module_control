@@ -35,7 +35,7 @@ namespace DeviceConfig {
     constexpr unsigned int DEFAULT_TARGET_TIME = 300; // 5 minutes
     constexpr const char* DEFAULT_TIMESTAMP = "03-05-2025T00:00:00";
     constexpr const char* DEFAULT_USER_ID = "CJ-02";
-    constexpr const char* DEFAULT_STATUS = "Active";
+    constexpr const char* DEFAULT_STATUS = "Inactive";
 }
 
 #endif

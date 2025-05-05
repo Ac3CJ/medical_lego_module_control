@@ -48,7 +48,7 @@ void BleManager::advertise() {
 }
 
 void BleManager::linkServiceAndController() {
-    // BLE writes → Controller callbacks
+    // BLE writes -> Controller callbacks
     _therapyService.setTargetTimeCallback([this](unsigned int targetTime) {
         _therapyController.onTargetTimeUpdated(targetTime);
     });
@@ -62,6 +62,7 @@ void BleManager::linkServiceAndController() {
         _therapyController.onUserIdUpdated(userId);
     });
 
-    // Controller → Service feedback
+    // Controller -> Service feedback
     _therapyController.setTherapyService(&_therapyService);
+    _therapyController.setModuleInfoService(&_moduleInfoService);
 }

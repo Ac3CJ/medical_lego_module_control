@@ -3,14 +3,18 @@
 
 TherapyController::TherapyController()
     : _targetTime(0), _intensity(0), _therapyActive(false),
-      _therapyStartTime(0), _elapsedTime(0), _therapyService(nullptr), _moduleInfoService(nullptr),
-      _lastBleSyncTime(0) {
+      _therapyStartTime(0), _elapsedTime(0), _batteryLife(0x64),
+      _therapyService(nullptr), _moduleInfoService(nullptr),
+      _lastBleSyncTime(0), _lastBatteryUpdate(0),
+      _status("Inactive") {
 }
 
+// ============================== GETTERS ==============================
 bool TherapyController::getIsTherapyActive() {
     return _therapyActive;
 }
 
+// ============================== SETTERS ==============================
 void TherapyController::setTherapyService(TherapyService* service) {
     _therapyService = service;
 }
@@ -19,15 +23,16 @@ void TherapyController::setModuleInfoService(ModuleInfoService* service) {
     _moduleInfoService = service;
 }
 
+// ============================== CHARACTERISTIC UPDATE CALLBACKS ==============================
 void TherapyController::onTargetTimeUpdated(unsigned int targetTime) {
     _targetTime = targetTime;
     Serial.print("Controller: Target time updated: ");
     Serial.println(_targetTime);
 
-    // Start therapy if intensity is also set
+/*     // Start therapy if intensity is also set
     if (_intensity > 0 && !_therapyActive) {
         startTherapy();
-    }
+    } */
 
     updateBleStatus();
 }
@@ -37,10 +42,10 @@ void TherapyController::onIntensityUpdated(byte intensity) {
     Serial.print("Controller: Intensity updated: ");
     Serial.println(_intensity);
 
-    // Start therapy if target time is also set
+/*     // Start therapy if target time is also set
     if (_targetTime > 0 && !_therapyActive) {
         startTherapy();
-    }
+    } */
 
     updateBleStatus();
 }
@@ -61,6 +66,8 @@ void TherapyController::onUserIdUpdated(const String& userId) {
     updateBleStatus();
 }
 
+// ============================== GENERAL METHODS ==============================
+
 void TherapyController::startTherapy() {
     if (_therapyActive) return;
     _therapyActive = true;
@@ -68,7 +75,8 @@ void TherapyController::startTherapy() {
     _elapsedTime = 0;
     Serial.println("Therapy started");
 
-    _therapyService->setStatus("Active");
+    if (_therapyService) _therapyService->setStatus("Active");
+    _status = "Active";
 }
 
 void TherapyController::stopTherapy() {
@@ -76,42 +84,57 @@ void TherapyController::stopTherapy() {
     _therapyActive = false;
     Serial.println("Therapy stopped");
 
+    _intensity = 0;
+    _targetTime = 0;
     if (_therapyService) {
-        _intensity = 0;
-        _targetTime = 0;
-        
-        //_therapyService->setIntensity(0);
-        //_therapyService->setTargetTime((unsigned int) 0);
+        // Bump these values
+        _therapyService->setIntensity(1);
+        _therapyService->setTargetTime(1);
+        delay(10);
+        _therapyService->setIntensity(0);
+        _therapyService->setTargetTime(0);
         _therapyService->setStatus("Inactive");
         _therapyService->setTimeElapsed(_elapsedTime);
     }
+
+    // Reset elapsed time
+    _elapsedTime = 0;
+
+    // Update last known status
+    _status = "Inactive";
+
+    // Force BLE status sync
+    updateBleStatus();
 }
 
 void TherapyController::update() {
+    // =================== ACTIVE THERAPY ===================
     if (_therapyActive) {
         _elapsedTime = (millis() - _therapyStartTime) / 1000;
-        
 
-        // Check if it's time to sync BLE values
-        if (millis() - _lastBleSyncTime >= _bleSyncInterval) {
-            updateBleStatus();
-            _lastBleSyncTime = millis();
-            Serial.printf("Time: %d\tIntensity: %d\tTarget Time: %d\n", _elapsedTime, _intensity, _targetTime);
+        if (_status != "Active") {
+            _status = "Active";
+            _therapyService->setStatus(_status);
         }
 
-        if (_elapsedTime >= _targetTime) {
-            stopTherapy();
-        }
-    } else { // Inactivite State
-        _therapyService->setStatus("Inactive");
+        // Check to stop therapy
+        if (_elapsedTime >= _targetTime) stopTherapy(); 
+    } 
+
+    // =================== INACTIVE MODE ===================
+    else {
         _elapsedTime = 0;
 
-        // Sync BLE
-        if (millis() - _lastBleSyncTime >= _bleSyncInterval) {
-            updateBleStatus();
-            _lastBleSyncTime = millis();
+        if (_status != "Inactive") {
+            _status = "Inactive";
+            _therapyService->setStatus(_status);
         }
+
+        // Check to start therapy
+        if (_intensity > 0 && _targetTime > 0) startTherapy();
     }
+    updateBattery();
+    updateBleValues();
 }
 
 void TherapyController::updateBleStatus() {
@@ -121,5 +144,29 @@ void TherapyController::updateBleStatus() {
         _therapyService->setIntensity(_intensity);
         _therapyService->setTimeStamp(_timeStamp);
         _therapyService->setUserId(_userId);
+        _therapyService->setStatus(_status);
+    }
+    if (_moduleInfoService) {
+        _moduleInfoService->setBatteryLife(_batteryLife);
+    }
+}
+
+void TherapyController::updateBattery() {
+    if (!_moduleInfoService) return;  // Safety check
+
+    if (millis() - _lastBatteryUpdate >= _batteryUpdateInterval) {
+        if (_batteryLife > 0) _batteryLife--;
+        else _batteryLife = 0x64;
+        _lastBatteryUpdate = millis();
+        //_moduleInfoService->updateBatteryLevel();
+    }
+}
+
+void TherapyController::updateBleValues() {
+    if (millis() - _lastBleSyncTime >= _bleSyncInterval) {
+        Serial.printf("Device %s | ", _status);
+        Serial.printf("Time: %d Intensity: %d Target Time: %d Battery: %d\n", _elapsedTime, _intensity, _targetTime, _batteryLife);
+        updateBleStatus();
+        _lastBleSyncTime = millis();
     }
 }

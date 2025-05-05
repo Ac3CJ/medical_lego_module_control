@@ -2,6 +2,7 @@
 #define MODULE_INFO_SERVICE_H
 
 #include <ArduinoBLE.h>
+#include <Arduino.h>
 #include "BleConfig.h"
 
 class ModuleInfoService {
@@ -16,7 +17,7 @@ public:
     void setBatteryLife(byte level);
     void setFirmwareVersion(const String& version);
     
-    void update();
+    void updateBatteryLevel();
 
 private:
     BLEService _service;

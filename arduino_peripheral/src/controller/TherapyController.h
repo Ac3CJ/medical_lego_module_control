@@ -36,18 +36,31 @@ private:
     byte _intensity;
     String _timeStamp;
     String _userId;
+    byte _batteryLife;
+    String _status;
 
     bool _therapyActive;
     unsigned long _therapyStartTime;  // millis()
     unsigned int _elapsedTime;
 
+    //String _lastStatus;
+
+    // Value Updating Intervales
     unsigned long _lastBleSyncTime;
     const unsigned long _bleSyncInterval = 1000;  // 1 second
 
-    TherapyService* _therapyService;  // pointer back to BLE service
+    unsigned long _lastBatteryUpdate = 0;
+    const unsigned long _batteryUpdateInterval = 2000; // 2 seconds
+
+    // Pointers for Services
+    TherapyService* _therapyService;
     ModuleInfoService* _moduleInfoService;
 
     void updateBleStatus();  // push updates to BLE
+
+    // Interval Based Update Methods
+    void updateBattery();
+    void updateBleValues();
 };
 
 #endif // THERAPY_CONTROLLER_H

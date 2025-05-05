@@ -38,7 +38,7 @@ void ModuleInfoService::initializeValues() {
 
 void ModuleInfoService::setDeviceId(const String& id) {
     if (id.length() <= 50) { // Match max characteristic size
-        _deviceIdChar.setValue(id);
+        _deviceIdChar.writeValue(id);
     }
 }
 
@@ -47,7 +47,7 @@ void ModuleInfoService::setLocationId(byte location) {
     size_t length;
 
     BleUtils::byteToUtf8(location, byteArray, length);
-    _locationIdChar.setValue(byteArray, length);
+    _locationIdChar.writeValue(byteArray, length);
 }
 
 void ModuleInfoService::setBatteryLife(byte level) {
@@ -57,32 +57,24 @@ void ModuleInfoService::setBatteryLife(byte level) {
     size_t length;
 
     BleUtils::byteToUtf8(constrainedLevel, byteArray, length);
-    _batteryLifeChar.setValue(byteArray, length);
+    _batteryLifeChar.writeValue(byteArray, length);
 }
 
 void ModuleInfoService::setFirmwareVersion(const String& version) {
     if (version.length() <= 20) {
-        _firmwareVersionChar.setValue(version);
+        _firmwareVersionChar.writeValue(version);
     }
 }
 
-void ModuleInfoService::update() {
-    // Placeholder for periodic updates
-    static unsigned long lastUpdate = 0;
-    const unsigned long updateInterval = 5000; // 5 seconds
+void ModuleInfoService::updateBatteryLevel() {
+    size_t length = _batteryLifeChar.valueLength();
+    byte currentBattery = BleUtils::utf8ToByte(_batteryLifeChar.value(), length);
     
-    if (millis() - lastUpdate >= updateInterval) {
-        lastUpdate = millis();
-        size_t length = _batteryLifeChar.valueLength();
-        byte currentBattery = BleUtils::utf8ToByte(_batteryLifeChar.value(), length);
-        
-        if (currentBattery > 0) {
-            currentBattery--;
-            setBatteryLife(currentBattery);
-        }
-        else {
-            currentBattery = 0x64;
-            setBatteryLife(currentBattery);
-        }
+    if (currentBattery > 0) {
+        currentBattery--;
+    } else {
+        currentBattery = 0x64; // Reset to 100%
     }
+    Serial.printf("Battery Level: %d\n", currentBattery);
+    setBatteryLife(currentBattery);
 }

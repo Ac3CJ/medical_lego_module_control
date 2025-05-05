@@ -21,6 +21,8 @@ public:
     void setStatus(const String& value);
     void setTimeStamp(const String& value);
     void setUserId(const String& value);
+
+    
     
     // Callback setters
     void setIntensityCallback(std::function<void(byte)> callback);

@@ -91,7 +91,7 @@ class _HomePageState extends State<HomePage> {
     return managers;
   }
 
-  void _initialiseDemoModules() {
+/*   void _initialiseDemoModules() {
     // moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'TMP-001', 0x00));
     moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E6', 'TMP-002', 0x01));
     moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E7', 'TMP-003', 0x02));
@@ -104,7 +104,7 @@ class _HomePageState extends State<HomePage> {
     // moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:F2', 'VBR-002', 0x01));
     // moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:F3', 'VBR-003', 0x02));
     // moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:F4', 'VBR-004', 0x03));
-  }
+  } */
 
 
   // Building the Widgets
