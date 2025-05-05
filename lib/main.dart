@@ -6,6 +6,7 @@ import 'models/module.dart';
 import 'models/module_manager.dart';
 import 'models/module_type.dart';
 import 'models/bluetooth_service.dart';
+import 'models/user.dart';
 
 // Extensions
 extension ParseToString on String {
@@ -56,6 +57,10 @@ class _HomePageState extends State<HomePage> {
   // Initialise Bluetooth Services
   late BleController bleController;
 
+  // For User ID
+  final TextEditingController _userIdController = TextEditingController();
+  final user = User(); // Get the singleton instance
+
   @override
   void initState(){
     super.initState();
@@ -77,6 +82,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     bleController.dispose(); // Make sure to dispose the controller
+    _userIdController.dispose();
     super.dispose();
   }
 
@@ -91,22 +97,6 @@ class _HomePageState extends State<HomePage> {
     return managers;
   }
 
-/*   void _initialiseDemoModules() {
-    // moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E5', 'TMP-001', 0x00));
-    moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E6', 'TMP-002', 0x01));
-    moduleManagers[ModuleType.temperature]?.addNewModule(Module('A0:02:A5:06:1D:E7', 'TMP-003', 0x02));
-
-    moduleManagers[ModuleType.infrared]?.addNewModule(Module('A0:02:A5:06:1D:E8', 'IR-001', 0x00));
-    moduleManagers[ModuleType.infrared]?.addNewModule(Module('A0:02:A5:06:1D:E9', 'IR-002', 0x01));
-    // moduleManagers[ModuleType.infrared]?.addNewModule(Module('A0:02:A5:06:1D:F0', 'IR-003', 0x02));
-
-    moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:F1', 'VBR-001', 0x00));
-    // moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:F2', 'VBR-002', 0x01));
-    // moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:F3', 'VBR-003', 0x02));
-    // moduleManagers[ModuleType.vibration]?.addNewModule(Module('A0:02:A5:06:1D:F4', 'VBR-004', 0x03));
-  } */
-
-
   // Building the Widgets
   @override
   Widget build(BuildContext context) {
@@ -117,7 +107,12 @@ class _HomePageState extends State<HomePage> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: ListView(
-          children: [
+          children: [ 
+            // User ID Input
+            _buildUserIdInput(),
+
+            // Therapy Control
+            const SizedBox(height: 20),
             ...List.generate((ModuleType.values.length-1), (index) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 20),
@@ -135,6 +130,50 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
+Widget _buildUserIdInput() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      StreamBuilder<Map<String, String>>(
+        stream: user.stream, // Access via instance
+        builder: (context, snapshot) {
+          final data = snapshot.data ?? {'userId': '', 'timestamp': ''};
+          return Text(
+            data['userId']!.isEmpty
+              ? 'No Current User'
+              : 'Current User: ${data['userId']} at ${data['timestamp']}',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.grey,
+            ),
+          );
+        },
+      ),
+      const SizedBox(height: 4),
+      TextField(
+        controller: _userIdController,
+        decoration: InputDecoration(
+          hintText: 'Enter User ID',
+          border: const OutlineInputBorder(),
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.keyboard_return, color: Colors.blue),
+            onPressed: _submitUserId,
+          ),
+        ),
+        onSubmitted: (_) => _submitUserId(),
+      ),
+    ],
+  );
+}
+
+void _submitUserId() {
+  if (_userIdController.text.isNotEmpty) {
+    User().setUserId(_userIdController.text); // Access via instance
+    _userIdController.clear();
+    setState(() {});
+  }
+}
 
   Widget _buildControlRow(int index) {
     ModuleManager? manager = moduleManagers[ModuleType.values[index]];
@@ -336,6 +375,13 @@ class _HomePageState extends State<HomePage> {
                                       color: _getBatteryColor(module.moduleBatteryLife.value),
                                     ),
                                   )),
+                                  Text(
+                                    'FW Version: ${module.firmwareVersion}',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
                                 ],
                               ),
                             );
@@ -474,6 +520,7 @@ class _HomePageState extends State<HomePage> {
                                       final deviceId = bleController.currentDeviceId.value;
                                       final macAddress = bleController.currentDeviceMacAddress.value;
                                       final locationId = bleController.currentDeviceLocationId.value;
+                                      final fwVersion = bleController.currentDeviceFwVersion.value;
                                       
                                       if (deviceId.isNotEmpty && macAddress.isNotEmpty && locationId.isNotEmpty) {
                                         final moduleType = deviceId.split('-')[0];
@@ -482,13 +529,13 @@ class _HomePageState extends State<HomePage> {
                                         switch(moduleType) {
                                           case 'TMP': 
                                             moduleManagers[ModuleType.temperature]?.addNewModule(
-                                              Module(macAddress, deviceId, location, data.device));
+                                              Module(macAddress, deviceId, location, fwVersion, data.device));
                                           case 'IR': 
                                             moduleManagers[ModuleType.infrared]?.addNewModule(
-                                              Module(macAddress, deviceId, location, data.device));
+                                              Module(macAddress, deviceId, location, fwVersion, data.device));
                                           case 'VBR': 
                                             moduleManagers[ModuleType.vibration]?.addNewModule(
-                                              Module(macAddress, deviceId, location, data.device));
+                                              Module(macAddress, deviceId, location, fwVersion, data.device));
                                         }
                                         // Trigger Refresh
                                         _refreshTrigger.toggle();

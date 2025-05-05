@@ -29,12 +29,12 @@ namespace DeviceConfig {
     constexpr const char* NAME = "LM Health Physical";
     constexpr const char* DEVICE_ID = "TMP-PHY";
     constexpr byte LOCATION = 0x01;
-    constexpr const char* FIRMWARE_VERSION = "1.0.0";
+    constexpr const char* FIRMWARE_VERSION = "0.9.9";
 
     constexpr byte DEFAULT_INTENSITY = 0x32;  // 50%
     constexpr unsigned int DEFAULT_TARGET_TIME = 300; // 5 minutes
     constexpr const char* DEFAULT_TIMESTAMP = "03-05-2025T00:00:00";
-    constexpr const char* DEFAULT_USER_ID = "CJ-02";
+    constexpr const char* DEFAULT_USER_ID = "NULL";
     constexpr const char* DEFAULT_STATUS = "Inactive";
 }
 

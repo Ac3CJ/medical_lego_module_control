@@ -14,11 +14,13 @@ class BleController extends GetxController {
   final Guid _informationServiceUuid = Guid('00000011-710e-4a5b-8d75-3e5b444bc3cf');
   final Guid _deviceIdCharUuid = Guid('00000012-710e-4a5b-8d75-3e5b444bc3cf');
   final Guid _locationIdCharUuid = Guid('00000013-710e-4a5b-8d75-3e5b444bc3cf');
+  final Guid _firmwareVersionChar = Guid('00000015-710e-4a5b-8d75-3e5b444bc3cf');
 
   // Identification Fields
   RxString _currentDeviceId = ''.obs;
   RxString _currentDeviceLocationId = ''.obs;
   RxString _currentDeviceMacAddress = ''.obs;
+  RxString _currentDeviceFwVersion = ''.obs;
 
   // Streams
   StreamSubscription<BluetoothConnectionState>? _currentDeviceConnectionState;
@@ -48,6 +50,7 @@ class BleController extends GetxController {
   RxString get currentDeviceId => _currentDeviceId;
   RxString get currentDeviceLocationId => _currentDeviceLocationId;
   RxString get currentDeviceMacAddress => _currentDeviceMacAddress;
+  RxString get currentDeviceFwVersion => _currentDeviceFwVersion;
 
   // Constructor
   BleController(this.moduleManagers);
@@ -76,16 +79,23 @@ class BleController extends GetxController {
         (c) => c.characteristicUuid == _locationIdCharUuid,
         orElse: () => throw Exception('Location ID characteristic not found'),
       );
+      final fwVersionChar = infoService.characteristics.firstWhere(
+        (c) => c.characteristicUuid == _firmwareVersionChar,
+        orElse: () => throw Exception('Location ID characteristic not found'),
+      );
 
       final deviceIdValue = await deviceIdChar.read();
       final locationIdValue = await locationIdChar.read();
+      final fwVersionValue = await fwVersionChar.read();
 
       _currentDeviceId.value = String.fromCharCodes(deviceIdValue);
       _currentDeviceLocationId.value = String.fromCharCodes(locationIdValue);
+      _currentDeviceFwVersion.value = String.fromCharCodes(fwVersionValue);
 
       print('Device ID: ${_currentDeviceId.value}');
       print('Location ID: ${_currentDeviceLocationId.value}');
       print('MAC Address: ${_currentDeviceMacAddress.value}');
+      print('FW Version: ${_currentDeviceFwVersion.value}');
     } catch (e) {
       print('Error fetching device information: $e');
     }

@@ -49,12 +49,12 @@
         {
           "uuid": "00000006-710e-4a5b-8d75-3e5b444bc3cf",
           "name": "Time Stamp",
-          "properties": ["read", "write"]
+          "properties": ["write"]
         },
         {
-          "uuid": "00000006-710e-4a5b-8d75-3e5b444bc3cf",
+          "uuid": "00000007-710e-4a5b-8d75-3e5b444bc3cf",
           "name": "User ID",
-          "properties": ["read", "write"]
+          "properties": ["write"]
         }
       ]
     },

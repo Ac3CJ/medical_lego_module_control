@@ -34,7 +34,8 @@ NOTIFY_TIMEOUT = 5000
 
 VIRTUAL_DEVICE_NAME = "LM Health Virtual"
 VIRTUAL_DEVICE_ID = "TMP-VIR"
-VIRTUAL_LOCATION = 1
+VIRTUAL_LOCATION = 2
+VIRTUAL_FIRMWARE_VERSION = "1.0.0"
 
 class bcolors:
     HEADER = '\033[95m'
@@ -83,19 +84,15 @@ class TherapyAdvertisement(Advertisement):
 # ===============================================================================================================
 
 class InfoService(Service):
-    THERAPY_SVC_UUID = "00000011-710e-4a5b-8d75-3e5b444bc3cf"
+    INFO_SVC_UUID = "00000011-710e-4a5b-8d75-3e5b444bc3cf"
 
     def __init__(self, index):
 
-        Service.__init__(self, index, self.THERAPY_SVC_UUID, True)
+        Service.__init__(self, index, self.INFO_SVC_UUID, True)
         self.add_characteristic(DeviceIdCharacteristic(self))
         self.add_characteristic(LocationIdCharacteristic(self))
         self.add_characteristic(BatteryLifeCharacteristic(self))
-        
-
-    # Setters
-
-    # Getters
+        self.add_characteristic(FirmwareVersionCharacteristic(self))
 
 # =============================================== CHARACTERISTICS ===============================================
 
@@ -190,6 +187,25 @@ class BatteryLifeCharacteristic(Characteristic):
         value = self.getBatteryLife()
         return value
 
+class FirmwareVersionCharacteristic(Characteristic):
+    FIRMWARE_VERSION_CHARACTERISTIC_UUID = "00000015-710e-4a5b-8d75-3e5b444bc3cf"
+    FIRMWARE_VERSION_CHARACTERISTIC_VALUE = VIRTUAL_FIRMWARE_VERSION
+
+    def __init__(self, service):
+        Characteristic.__init__(
+                self, self.FIRMWARE_VERSION_CHARACTERISTIC_UUID,
+                ["read"],
+                service)
+
+    def ReadValue(self, options):
+        value = []
+        desc = self.FIRMWARE_VERSION_CHARACTERISTIC_VALUE
+
+        for c in desc:
+            value.append(dbus.Byte(c.encode()))
+
+        return value
+
 # ===============================================================================================================
 # =============================================== THERAPY SERVICE ===============================================
 # ===============================================================================================================
@@ -204,6 +220,9 @@ class TherapyService(Service):
         self.targetTime = 0
         self.isTherapyActive = False
 
+        self.timeStamp = ''
+        self.userId = ''
+
         Service.__init__(self, index, self.THERAPY_SVC_UUID, True)
 
         # Initialise Characteristics
@@ -211,6 +230,8 @@ class TherapyService(Service):
         self.add_characteristic(IntensityCharacteristic(self))
         self.add_characteristic(TargetTimeCharacteristic(self))
         self.add_characteristic(StatusCharacteristic(self))
+        self.add_characteristic(TimeStampCharacteristic(self))
+        self.add_characteristic(UserIdCharacteristic(self))
 
     # Setters
     def setElapsedTime(self, elapsedTime):
@@ -228,6 +249,12 @@ class TherapyService(Service):
     def setIsTherapyActive(self, isTherapyActive):
         self.isTherapyActive = isTherapyActive
 
+    def setTimeStamp(self, timeStamp):
+        self.timeStamp = timeStamp
+    
+    def setUserId(self, userId):
+        self.userId = userId
+
     # Getters
     def getElapsedTime(self):
         return self.elapsedTime
@@ -243,6 +270,12 @@ class TherapyService(Service):
     
     def getIsTherapyActive(self):
         return self.isTherapyActive
+    
+    def getTimeStamp(self):
+        return self.timeStamp
+    
+    def getUserId(self):
+        return self.userId
 
 # =============================================== TIME TRACKING CHARACTERISTIC ===============================================
 
@@ -417,6 +450,7 @@ class IntensityCharacteristic(Characteristic):
                 self.service.setElapsedTime(0)
                 self.service.setStartTime(time.time())
                 print(f"{bcolors.OKGREEN}[INFO] Therapy Started{bcolors.ENDC}")
+                print(f"User: {self.service.getUserId()}\tTime Stamp: {self.service.getTimeStamp()}")
             else:
                 print(f"{bcolors.WARNING}[INFO] Awaiting Therapy Target Time{bcolors.ENDC}")
 
@@ -504,6 +538,7 @@ class TargetTimeCharacteristic(Characteristic):
                 self.service.setElapsedTime(0)
                 self.service.setStartTime(time.time())
                 print(f"{bcolors.OKGREEN}[INFO] Therapy Started{bcolors.ENDC}")
+                print(f"User: {self.service.getUserId()}\tTime Stamp: {self.service.getTimeStamp()}")
             else:
                 print(f"{bcolors.WARNING}[INFO] Awaiting Therapy Intensity{bcolors.ENDC}")
 
@@ -584,7 +619,94 @@ class StatusCharacteristic(Characteristic):
         value = self.getStatus()
         return value
     
+# =============================================== TIME STAMP CHARACTERISTIC ===============================================
 
+class TimeStampCharacteristic(Characteristic):
+    TIME_STAMP_CHARACTERISTIC_UUID = "00000006-710e-4a5b-8d75-3e5b444bc3cf"
+
+    def __init__(self, service):
+        self.timeStamp = ""
+        Characteristic.__init__(
+                self, self.TIME_STAMP_CHARACTERISTIC_UUID,
+                ["write"], service)
+        self.add_descriptor(TimeStampDescriptor(self))
+
+    def WriteValue(self, value, options):
+        try:
+            self.timeStamp = ''.join([chr(byte) for byte in value])
+            print(f"{bcolors.OKGREEN}[TIMESTAMP] {self.timeStamp}{bcolors.ENDC}")
+
+            self.service.setTimeStamp(self.timeStamp)
+        except Exception as e:
+            print(f"[ERROR] Failed to write Timestamp: {e}")
+
+    def ReadValue(self, options):
+        value = []
+        for c in self.timeStamp:
+            value.append(dbus.Byte(c.encode()))
+        return value
+
+class TimeStampDescriptor(Descriptor):
+    TIME_STAMP_DESCRIPTOR_UUID = "2901"
+    TIME_STAMP_DESCRIPTOR_VALUE = "Timestamp (DD:MM:YYYYTHH:MM:SS)"
+
+    def __init__(self, characteristic):
+        Descriptor.__init__(
+                self, self.TIME_STAMP_DESCRIPTOR_UUID,
+                ["read"],
+                characteristic)
+
+    def ReadValue(self, options):
+        value = []
+        desc = self.TIME_STAMP_DESCRIPTOR_VALUE
+        for c in desc:
+            value.append(dbus.Byte(c.encode()))
+        return value
+    
+# =============================================== USER ID CHARACTERISTIC ===============================================
+
+class UserIdCharacteristic(Characteristic):
+    USER_ID_CHARACTERISTIC_UUID = "00000007-710e-4a5b-8d75-3e5b444bc3cf"
+
+    def __init__(self, service):
+        self.userId = ""
+        Characteristic.__init__(
+                self, self.USER_ID_CHARACTERISTIC_UUID,
+                ["write"], service)
+        self.add_descriptor(UserIdDescriptor(self))
+
+    def WriteValue(self, value, options):
+        try:
+            self.userId = ''.join([chr(byte) for byte in value])
+            print(f"{bcolors.OKGREEN}[USER ID] {self.userId}{bcolors.ENDC}")
+
+            self.service.setUserId(self.userId)
+        except Exception as e:
+            print(f"[ERROR] Failed to write User ID: {e}")
+
+    def ReadValue(self, options):
+        value = []
+        for c in self.userId:
+            value.append(dbus.Byte(c.encode()))
+        return value
+
+class UserIdDescriptor(Descriptor):
+    USER_ID_DESCRIPTOR_UUID = "2901"
+    USER_ID_DESCRIPTOR_VALUE = "User ID"
+
+    def __init__(self, characteristic):
+        Descriptor.__init__(
+                self, self.USER_ID_DESCRIPTOR_UUID,
+                ["read"],
+                characteristic)
+
+    def ReadValue(self, options):
+        value = []
+        desc = self.USER_ID_DESCRIPTOR_VALUE
+        for c in desc:
+            value.append(dbus.Byte(c.encode()))
+        return value
+    
 # =============================================== MAIN CODE ===============================================
 app = Application()
 app.add_service(TherapyService(0))

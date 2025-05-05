@@ -57,6 +57,7 @@ void TherapyController::startTherapy() {
     _elapsedTime = 0;
     _status = "Active";
     Serial.println("Therapy started");
+    Serial.printf("User: %s\tTime Stamp: %s", _userId, _timeStamp);
 
     if (_therapyService) _therapyService->setStatus(_status);
 }

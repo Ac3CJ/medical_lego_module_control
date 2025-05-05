@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'module_type.dart';
+import 'user.dart';
 
 enum StatusType {
   connected,    // This means the module is inactive as well
@@ -23,7 +24,8 @@ class Module {
   // Private
   final String _serialNumber;
   final String _moduleId;
-  final num _locationId; 
+  num _locationId; 
+  String _firmwareVersion;
   ModuleType _moduleType = ModuleType.unknown;
   StatusType _status = StatusType.disconnected; // Keep this value for potential future
   
@@ -56,6 +58,7 @@ class Module {
   String get serialNumber => _serialNumber;
   ModuleType get moduleType => _moduleType;
   num get locationId => _locationId;
+  String get firmwareVersion => _firmwareVersion;
 
   // Get Device Details from BLE
   RxInt get rssi => _rssi;
@@ -109,7 +112,7 @@ class Module {
   }
 
   // Constructor
-  Module(this._serialNumber, this._moduleId, this._locationId, [this._device]) {
+  Module(this._serialNumber, this._moduleId, this._locationId, this._firmwareVersion, [this._device]) {
     // Assign the module type based on the ID
     switch(_moduleId.split('-')[0]) {
       case 'TMP': _moduleType = ModuleType.temperature;
@@ -313,6 +316,13 @@ class Module {
     _bleManager?.setIntensity(intensity.toInt());
     _bleManager?.setTargetTime(((targetT*60).toInt())); // TARGET TIME IS READ IN MINUTES
 
+    // Send user info if available
+    final user = User();
+    if (user.currentUserId.isNotEmpty) {
+      _bleManager?.setUserId(user.currentUserId);
+      _bleManager?.setTimestamp(user.formattedTimestamp);
+    }
+
     _bleManager?.refreshValues();
     _status = StatusType.active;
     print('[MODULE] MAC: $_serialNumber\tModule ID: $_moduleId\tIntensity: ${intensity.toString()}\tTarget Time: ${targetT.toString()}');
@@ -344,9 +354,13 @@ class BleServiceManager {
   static final intensityChar = Guid('00000003-710e-4a5b-8d75-3e5b444bc3cf');
   static final targetTimeChar = Guid('00000004-710e-4a5b-8d75-3e5b444bc3cf');
   static final statusChar = Guid('00000005-710e-4a5b-8d75-3e5b444bc3cf');
+  static final timeStampChar = Guid('00000006-710e-4a5b-8d75-3e5b444bc3cf');
+  static final userIdChar = Guid('00000007-710e-4a5b-8d75-3e5b444bc3cf');
+
   static final deviceIdChar = Guid('00000012-710e-4a5b-8d75-3e5b444bc3cf');
   static final locationIdChar = Guid('00000013-710e-4a5b-8d75-3e5b444bc3cf');
-  static final batteryLevelChar = Guid('00000014-710e-4a5b-8d75-3e5b444bc3cf'); // Standard Battery Level Characteristic UUID
+  static final batteryLevelChar = Guid('00000014-710e-4a5b-8d75-3e5b444bc3cf'); 
+  static final firmwareVersionChar = Guid('00000015-710e-4a5b-8d75-3e5b444bc3cf');
 
   BluetoothDevice device;
   
@@ -534,6 +548,16 @@ class BleServiceManager {
     return value;
   }
 
+  Future<void> setTimestamp(String timestamp) async {
+    final bytes = _encodeUtf8(timestamp);
+    await _writeCharacteristic(timeStampChar, therapyControlService, bytes);
+  }
+
+  Future<void> setUserId(String userId) async {
+    final bytes = _encodeUtf8(userId);
+    await _writeCharacteristic(userIdChar, therapyControlService, bytes);
+  }
+
   // Module Information Service Methods
   Future<String> getDeviceId() async {
     final data = await _readCharacteristic(deviceIdChar, moduleInfoService);
@@ -542,6 +566,11 @@ class BleServiceManager {
 
   Future<String> getLocationId() async {
     final data = await _readCharacteristic(locationIdChar, moduleInfoService);
+    return _decodeUtf8(data);
+  }
+
+  Future<String> getFirmwareVersion() async {
+    final data = await _readCharacteristic(firmwareVersionChar, moduleInfoService);
     return _decodeUtf8(data);
   }
 
