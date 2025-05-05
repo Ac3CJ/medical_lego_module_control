@@ -27,7 +27,7 @@
 // Device Configuration
 namespace DeviceConfig {
     constexpr const char* NAME = "LM Health Physical";
-    constexpr const char* DEVICE_ID = "TMP-PHY";
+    constexpr const char* DEVICE_ID = "TMP-PHY"; //TMP-PHY VIB-PHY IR-PHY
     constexpr byte LOCATION = 0x01;
     constexpr const char* FIRMWARE_VERSION = "0.9.9";
 

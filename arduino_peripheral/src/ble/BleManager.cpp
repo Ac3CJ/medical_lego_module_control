@@ -38,6 +38,8 @@ void BleManager::setupBle() {
     
     BLE.addService(_therapyService.getService());
     BLE.addService(_moduleInfoService.getService());
+
+    Serial.printf("Advertising as %s...", DeviceConfig::NAME);
 }
 
 void BleManager::setConnectionParameters() {
@@ -85,6 +87,7 @@ void onBLEConnected(BLEDevice central) {
         Serial.print("Connected to device (MAC: ");
         Serial.print(central.address());
     }
+    Serial.println();
     
 }
 

@@ -28,7 +28,11 @@ from service import Application, Service, Characteristic, Descriptor
 # Functionality 
 import time
 import threading
+import curses
+from curses import wrapper
 
+
+# Constants
 GATT_CHRC_IFACE = "org.bluez.GattCharacteristic1"
 NOTIFY_TIMEOUT = 5000
 
@@ -48,25 +52,179 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-# =============================================== HELPER FUNCTIONS ===============================================
-def print_progress_bar(iteration, total, prefix='', suffix='', length=30, fill='█'):
-    """
-    Call in a loop to create terminal progress bar
-    @params:
-        iteration   - Required  : current iteration (Int)
-        total       - Required  : total iterations (Int)
-        prefix      - Optional  : prefix string (Str)
-        suffix      - Optional  : suffix string (Str)
-        length      - Optional  : character length of bar (Int)
-        fill        - Optional  : bar fill character (Str)
-    """
-    percent = ("{0:.1f}").format(100 * (iteration / float(total)))
-    filled_length = int(length * iteration // total)
-    bar = fill * filled_length + '-' * (length - filled_length)
-    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end='\r')
-    # Print New Line on Complete
-    if iteration == total: 
-        print()         
+# Global variables for UI
+ui_screen = None
+battery_window = None
+therapy_window = None
+
+# =============================================== UI ===============================================
+def init_ui():
+    """Initialize the curses UI with multiple windows"""
+    global ui_screen, battery_window, therapy_window, status_window, device_info_window
+    
+    # Initialize curses
+    ui_screen = curses.initscr()
+    curses.noecho()
+    curses.cbreak()
+    curses.curs_set(0)  # Hide cursor
+    
+    # Get screen dimensions
+    height, width = ui_screen.getmaxyx()
+    
+    # Create windows with borders
+    # 1. Advertising status (top)
+    ui_screen.addstr(0, 2, f" Advertising as {VIRTUAL_DEVICE_NAME}... ")
+    ui_screen.refresh()
+    
+    # 2. Battery window (row 1)
+    battery_window = curses.newwin(3, width, 1, 0)
+    battery_window.border()
+    battery_window.addstr(0, 2, " Battery Life ")
+    
+    # 3. Therapy window (row 4)
+    therapy_window = curses.newwin(3, width, 4, 0)
+    therapy_window.border()
+    therapy_window.addstr(0, 2, " Therapy Progress ")
+    
+    # 4. Status window (row 7) - Shows intensity, target time, user ID and timestamp
+    status_window = curses.newwin(4, width, 7, 0)
+    status_window.border()
+    status_window.addstr(0, 2, " Therapy Status ")
+    
+    # 5. Device info window (bottom) - Shows device info
+    device_info_window = curses.newwin(3, width, 11, 0)
+    device_info_window.border()
+    device_info_window.addstr(0, 2, " Device Information ")
+    
+    # Refresh all windows
+    battery_window.refresh()
+    therapy_window.refresh()
+    status_window.refresh()
+    device_info_window.refresh()
+
+def close_ui():
+    """Clean up the curses UI"""
+    global ui_screen
+    if ui_screen:
+        curses.nocbreak()
+        ui_screen.keypad(False)
+        curses.echo()
+        curses.endwin()
+
+def update_battery_ui(percent):
+    """Update the battery progress bar"""
+    global battery_window
+    if not battery_window:
+        return
+    
+    width = int((battery_window.getmaxyx()[1] - 6) * 0.8)  # Leave space for borders and percentage
+    filled = int(width * percent / 100)
+    
+    battery_window.clear()
+    battery_window.border()
+    battery_window.addstr(0, 2, " Battery Life ")
+    
+    # Create progress bar
+    progress = '[' + '#' * filled + ' ' * (width - filled) + ']'
+    battery_window.addstr(1, 2, progress)
+    
+    # Add percentage
+    battery_window.addstr(1, width + 4, f"{percent}%")
+    battery_window.refresh()
+
+def update_therapy_ui(elapsed, target):
+    """Update the therapy progress bar with rounded time values"""
+    global therapy_window
+    if not therapy_window:
+        return
+    
+    # Use 70% of window width for progress bar, leave rest for numbers
+    width = int((therapy_window.getmaxyx()[1] - 4) * 0.8)
+    
+    # Round elapsed time to whole number
+    elapsed_rounded = round(elapsed)
+    
+    if target > 0:
+        filled = int(width * min(elapsed_rounded, target) / target)
+        time_str = f"{elapsed_rounded}s / {target}s"
+    else:
+        filled = 0
+        time_str = "Inactive"
+    
+    therapy_window.clear()
+    therapy_window.border()
+    therapy_window.addstr(0, 2, " Therapy Progress ")
+    
+    # Create progress bar with limited width
+    progress = '[' + '#' * filled + ' ' * (width - filled) + ']'
+    therapy_window.addstr(1, 2, progress)
+    
+    # Add time display right after progress bar
+    therapy_window.addstr(1, width + 4, time_str)
+    therapy_window.refresh()
+
+
+def update_status_ui(intensity, target_time, user_id, timestamp):
+    """Update the status window with improved layout"""
+    global status_window
+    if not status_window:
+        return
+    
+    status_window.clear()
+    status_window.border()
+    status_window.addstr(0, 2, " Therapy Status ")
+    
+    # Line 1: Intensity, Target Time, and Status
+    status_window.addstr(1, 2, f"Intensity: {intensity}%")
+    status_window.addstr(1, 25, f"Target Time: {target_time}s")
+
+    status = "ACTIVE" if (intensity > 0 and target_time > 0) else "INACTIVE"
+    status_window.addstr(1, 50, f"Status: {status}")
+    
+    # Line 2: User ID and Timestamp on same row
+    user_display = user_id if user_id else "Not set"
+    ts_display = timestamp if timestamp else "Not set"
+    status_window.addstr(2, 2, f"User: {user_display}")
+    status_window.addstr(2, 30, f"Timestamp: {ts_display}")
+    
+    status_window.refresh()
+
+def update_device_info_ui():
+    """Update the device information window with all device details"""
+    global device_info_window
+    if not device_info_window:
+        return
+    
+    device_info_window.clear()
+    device_info_window.border()
+    device_info_window.addstr(0, 2, " Device Information ")
+    
+    # Line 1: Device ID, Location, and Firmware Version
+    device_info_window.addstr(1, 2, f"ID: {VIRTUAL_DEVICE_ID}")
+    device_info_window.addstr(1, 25, f"Location: 0x{VIRTUAL_LOCATION:02X}")
+    device_info_window.addstr(1, 50, f"Firmware: {VIRTUAL_FIRMWARE_VERSION}")
+    
+    device_info_window.refresh()
+
+def show_therapy_started(user_id, timestamp):
+    """Display therapy started message"""
+    global status_window
+    if not status_window:
+        return
+    
+    status_window.addstr(1, 50, "Status: ACTIVE")
+    status_window.addstr(2, 2, f"User: {user_id}")
+    status_window.addstr(3, 2, f"Timestamp: {timestamp}")
+    status_window.refresh()
+
+def show_therapy_completed(target_time):
+    """Display therapy completed message"""
+    global therapy_window
+    if not therapy_window:
+        return
+    
+    therapy_window.addstr(2, 2, f"Therapy completed after {target_time}s")
+    therapy_window.refresh()
 
 # ===============================================================================================================
 # =============================================== ADVERTISEMENT =================================================
@@ -113,7 +271,8 @@ class DeviceIdCharacteristic(Characteristic):
 
         for c in desc:
             value.append(dbus.Byte(c.encode()))
-
+            
+        update_device_info_ui()
         return value
 
 class LocationIdCharacteristic(Characteristic):
@@ -133,6 +292,7 @@ class LocationIdCharacteristic(Characteristic):
         for c in desc:
             value.append(dbus.Byte(c.encode()))
 
+        update_device_info_ui()
         return value
     
 class BatteryLifeCharacteristic(Characteristic):
@@ -156,6 +316,9 @@ class BatteryLifeCharacteristic(Characteristic):
 
             if (self.batteryLife <= 0):
                 self.batteryLife = 100
+
+            # Update UI
+            update_battery_ui(self.batteryLife)
 
     def getBatteryLife(self):
         value = []
@@ -204,6 +367,7 @@ class FirmwareVersionCharacteristic(Characteristic):
         for c in desc:
             value.append(dbus.Byte(c.encode()))
 
+        update_device_info_ui()
         return value
 
 # ===============================================================================================================
@@ -307,17 +471,19 @@ class TimeCharacteristic(Characteristic):
 
             if (self.service.getIsTherapyActive()):
                 if targetTime > 0:
-                    print_progress_bar(
-                        min(elapsedTime, targetTime),
-                        targetTime,
-                        prefix='Therapy Progress:',
-                        suffix=f'Elapsed: {int(elapsedTime)}s / Target: {targetTime}s',
-                        length=40
+                    # Update therapy progress UI
+                    update_therapy_ui(min(elapsedTime, targetTime), targetTime)
+                    update_status_ui(
+                        self.service.getIntensity(),
+                        self.service.getTargetTime(),
+                        self.service.getUserId(),
+                        self.service.getTimeStamp()
                     )
                 
                 # Check if therapy time is complete
                 if elapsedTime >= targetTime:
-                    print(f"\n{bcolors.HEADER}[INFO] Therapy session completed after {targetTime}s{bcolors.ENDC}")
+                    #print(f"\n{bcolors.HEADER}[INFO] Therapy session completed after {targetTime}s{bcolors.ENDC}")
+                    show_therapy_completed(targetTime)
 
                     # Reset Other Characteristics
                     self.service.setIntensity(0)
@@ -327,7 +493,13 @@ class TimeCharacteristic(Characteristic):
                     # Reset Local Vars
                     self.moduleTime = 0
                     self.startTime = time.time()
-                    print(f"\n{bcolors.HEADER}[INFO] New Intensity: {self.service.getIntensity()} | New Target Time: {self.service.getTargetTime()}{bcolors.ENDC}")
+                    #print(f"\n{bcolors.HEADER}[INFO] New Intensity: {self.service.getIntensity()} | New Target Time: {self.service.getTargetTime()}{bcolors.ENDC}")
+
+                    # Update UI to show inactive
+                    update_status_ui(0, 0, 
+                                     self.service.getUserId(),
+                                     self.service.getTimeStamp())
+                    update_therapy_ui(0, 0)
 
     def getElapsedTime(self):
         value = []
@@ -443,23 +615,36 @@ class IntensityCharacteristic(Characteristic):
             newIntensity = int(strValue)
 
             self.service.setIntensity(newIntensity)  # Update in parent service
+            update_status_ui(
+                self.service.getIntensity(),
+                self.service.getTargetTime(),
+                self.service.getUserId(),
+                self.service.getTimeStamp()
+            )
 
             # Check to make sure Therapy doesn't start prematurely
             if (self.service.getTargetTime() > 0):
                 self.service.setIsTherapyActive(True)
                 self.service.setElapsedTime(0)
                 self.service.setStartTime(time.time())
-                print(f"{bcolors.OKGREEN}[INFO] Therapy Started{bcolors.ENDC}")
-                print(f"User: {self.service.getUserId()}\tTime Stamp: {self.service.getTimeStamp()}")
+
+                # print(f"{bcolors.OKGREEN}[INFO] Therapy Started{bcolors.ENDC}")
+                # print(f"User: {self.service.getUserId()}\tTime Stamp: {self.service.getTimeStamp()}")
+                show_therapy_started()
+                status_window.addstr(1, 50, "Status: ACTIVE")
+                status_window.refresh()
             else:
-                print(f"{bcolors.WARNING}[INFO] Awaiting Therapy Target Time{bcolors.ENDC}")
+                # print(f"{bcolors.WARNING}[INFO] Awaiting Therapy Target Time{bcolors.ENDC}")
+                status_window.addstr(1, 50, "Status: WAITING")
+                status_window.refresh()
 
             self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": self.ReadValue({})}, [])
 
-            print(f"[INFO] Intensity updated to: {self.service.getIntensity()}")
+            # print(f"[INFO] Intensity updated to: {self.service.getIntensity()}")
 
         except Exception as e:
-            print(f"[ERROR] Failed to write Intensity value: {e}")
+            status_window.addstr(3, 40, f"Error: {str(e)}")
+            status_window.refresh()
 
 class IntensityDescriptor(Descriptor):
     INTENSITY_DESCRIPTOR_UUID = "2901"
@@ -531,23 +716,37 @@ class TargetTimeCharacteristic(Characteristic):
             newTargetTime = int(strValue)
 
             self.service.setTargetTime(newTargetTime)  # Update in parent service
+            update_status_ui(
+                self.service.getIntensity(),
+                self.service.getTargetTime(),
+                self.service.getUserId(),
+                self.service.getTimeStamp()
+            )
 
             # Check to make sure Therapy doesn't start prematurely
             if (self.service.getIntensity() > 0):
                 self.service.setIsTherapyActive(True)
                 self.service.setElapsedTime(0)
                 self.service.setStartTime(time.time())
-                print(f"{bcolors.OKGREEN}[INFO] Therapy Started{bcolors.ENDC}")
-                print(f"User: {self.service.getUserId()}\tTime Stamp: {self.service.getTimeStamp()}")
+
+                show_therapy_started()
+                status_window.addstr(1, 50, "Status: ACTIVE")
+                status_window.refresh()
+                # print(f"{bcolors.OKGREEN}[INFO] Therapy Started{bcolors.ENDC}")
+                # print(f"User: {self.service.getUserId()}\tTime Stamp: {self.service.getTimeStamp()}")
             else:
-                print(f"{bcolors.WARNING}[INFO] Awaiting Therapy Intensity{bcolors.ENDC}")
+                status_window.addstr(1, 50, "Status: WAITING")
+                status_window.refresh()
+                # print(f"{bcolors.WARNING}[INFO] Awaiting Therapy Intensity{bcolors.ENDC}")
 
             self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": self.ReadValue({})}, [])
 
-            print(f"[INFO] Target Time updated to: {self.service.getTargetTime()}")
+            #print(f"[INFO] Target Time updated to: {self.service.getTargetTime()}")
 
         except Exception as e:
-            print(f"[ERROR] Failed to write Target Time value: {e}")
+            status_window.addstr(3, 40, f"Error: {str(e)}")
+            status_window.refresh()
+            #print(f"[ERROR] Failed to write Target Time value: {e}")
 
 class TargetTimeDescriptor(Descriptor):
     TARGET_TIME_DESCRIPTOR_UUID = "2901"
@@ -634,11 +833,19 @@ class TimeStampCharacteristic(Characteristic):
     def WriteValue(self, value, options):
         try:
             self.timeStamp = ''.join([chr(byte) for byte in value])
-            print(f"{bcolors.OKGREEN}[TIMESTAMP] {self.timeStamp}{bcolors.ENDC}")
+            #print(f"{bcolors.OKGREEN}[TIMESTAMP] {self.timeStamp}{bcolors.ENDC}")
 
             self.service.setTimeStamp(self.timeStamp)
+            update_status_ui(
+                self.service.getIntensity(),
+                self.service.getTargetTime(),
+                self.service.getUserId(),
+                self.service.getTimeStamp()
+            )
         except Exception as e:
-            print(f"[ERROR] Failed to write Timestamp: {e}")
+            # print(f"[ERROR] Failed to write Timestamp: {e}")
+            status_window.addstr(3, 40, f"Error: {str(e)}")
+            status_window.refresh()
 
     def ReadValue(self, options):
         value = []
@@ -678,11 +885,19 @@ class UserIdCharacteristic(Characteristic):
     def WriteValue(self, value, options):
         try:
             self.userId = ''.join([chr(byte) for byte in value])
-            print(f"{bcolors.OKGREEN}[USER ID] {self.userId}{bcolors.ENDC}")
+            # print(f"{bcolors.OKGREEN}[USER ID] {self.userId}{bcolors.ENDC}")
+            update_status_ui(
+                self.service.getIntensity(),
+                self.service.getTargetTime(),
+                self.service.getUserId(),
+                self.service.getTimeStamp()
+            )
 
             self.service.setUserId(self.userId)
         except Exception as e:
-            print(f"[ERROR] Failed to write User ID: {e}")
+            # print(f"[ERROR] Failed to write User ID: {e}")
+            status_window.addstr(3, 40, f"Error: {str(e)}")
+            status_window.refresh()
 
     def ReadValue(self, options):
         value = []
@@ -708,17 +923,25 @@ class UserIdDescriptor(Descriptor):
         return value
     
 # =============================================== MAIN CODE ===============================================
-app = Application()
-app.add_service(TherapyService(0))
-app.add_service(InfoService(1))
-app.register()
+def main(stdscr):
+    init_ui()
+    
+    app = Application()
+    app.add_service(TherapyService(0))
+    app.add_service(InfoService(1))
+    app.register()
 
-adv = TherapyAdvertisement(0)
-adv.register()
+    adv = TherapyAdvertisement(0)
+    adv.register()
 
-try:
-    print(f"{bcolors.OKBLUE}Advertising as {VIRTUAL_DEVICE_NAME}...{bcolors.ENDC}")
-    app.run()
-except KeyboardInterrupt:
-    app.quit()
-    print("Terminating Application")
+    try:
+        #print(f"{bcolors.OKBLUE}Advertising as {VIRTUAL_DEVICE_NAME}...{bcolors.ENDC}")
+        app.run()
+    except KeyboardInterrupt:
+        app.quit()
+        #print("Terminating Application")
+    finally:
+        close_ui()
+
+if __name__ == "__main__":
+    wrapper(main)

@@ -86,9 +86,10 @@ class Application(dbus.service.Object):
                 device_proxy = self.bus.get_object("org.bluez", path)
                 device_props = dbus.Interface(device_proxy, "org.freedesktop.DBus.Properties")
                 address = device_props.Get("org.bluez.Device1", "Address")
-                print(f"\nCENTRAL CONNECTED - MAC: {address}")
+                #print(f"\nCENTRAL CONNECTED - MAC: {address}")
             else:
-                print("\nCENTRAL DISCONNECTED")
+                #print("\nCENTRAL DISCONNECTED")
+                pass
 
     def get_path(self):
         return dbus.ObjectPath(self.path)
@@ -112,10 +113,12 @@ class Application(dbus.service.Object):
         return response
 
     def register_app_callback(self):
-        print("GATT application registered")
+        #print("GATT application registered")
+        pass
 
     def register_app_error_callback(self, error):
-        print("Failed to register application: " + str(error))
+        #print("Failed to register application: " + str(error))
+        pass
 
     def register(self):
         adapter = BleTools.find_adapter(self.bus)
@@ -132,7 +135,7 @@ class Application(dbus.service.Object):
         self.mainloop.run()
 
     def quit(self):
-        print("\nGATT application terminated")
+        #print("\nGATT application terminated")
         self.mainloop.quit()
 
 class Service(dbus.service.Object):
