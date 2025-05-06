@@ -131,49 +131,50 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-Widget _buildUserIdInput() {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      StreamBuilder<Map<String, String>>(
-        stream: user.stream, // Access via instance
-        builder: (context, snapshot) {
-          final data = snapshot.data ?? {'userId': '', 'timestamp': ''};
-          return Text(
-            data['userId']!.isEmpty
-              ? 'No Current User'
-              : 'Current User: ${data['userId']} at ${data['timestamp']}',
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.grey,
-            ),
-          );
-        },
-      ),
-      const SizedBox(height: 4),
-      TextField(
-        controller: _userIdController,
-        decoration: InputDecoration(
-          hintText: 'Enter User ID',
-          border: const OutlineInputBorder(),
-          suffixIcon: IconButton(
-            icon: const Icon(Icons.keyboard_return, color: Colors.blue),
-            onPressed: _submitUserId,
-          ),
+  Widget _buildUserIdInput() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        StreamBuilder<Map<String, String>>(
+          stream: user.stream,
+          initialData: user.currentData, // Provide initial data from the singleton
+          builder: (context, snapshot) {
+            final data = snapshot.data ?? {'userId': '', 'timestamp': ''};
+            return Text(
+              data['userId']!.isEmpty
+                ? 'No Current User'
+                : 'Current User: ${data['userId']} at ${data['timestamp']}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+              ),
+            );
+          },
         ),
-        onSubmitted: (_) => _submitUserId(),
-      ),
-    ],
-  );
-}
-
-void _submitUserId() {
-  if (_userIdController.text.isNotEmpty) {
-    User().setUserId(_userIdController.text); // Access via instance
-    _userIdController.clear();
-    setState(() {});
+        const SizedBox(height: 4),
+        TextField(
+          controller: _userIdController,
+          decoration: InputDecoration(
+            hintText: 'Enter User ID',
+            border: const OutlineInputBorder(),
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.keyboard_return, color: Colors.blue),
+              onPressed: _submitUserId,
+            ),
+          ),
+          onSubmitted: (_) => _submitUserId(),
+        ),
+      ],
+    );
   }
-}
+
+  void _submitUserId() {
+    if (_userIdController.text.isNotEmpty) {
+      User().changeUserId(_userIdController.text); // Access via instance
+      _userIdController.clear();
+      setState(() {});
+    }
+  }
 
   Widget _buildControlRow(int index) {
     ModuleManager? manager = moduleManagers[ModuleType.values[index]];

@@ -10,18 +10,20 @@ class User {
   DateTime? _timestamp;
   final _controller = StreamController<Map<String, String>>.broadcast();
 
+  Map<String, String> get currentData => {
+    'userId': _currentUserId,
+    'timestamp': formattedTimestamp
+  };
+
   String get currentUserId => _currentUserId;
   String get formattedTimestamp => _timestamp != null 
       ? DateFormat('dd:MM:yyyy\'T\'HH:mm:ss').format(_timestamp!) 
       : '';
 
-  void setUserId(String newId) {
+  void changeUserId(String newId) {
     _currentUserId = newId;
     _timestamp = DateTime.now();
-    _controller.add({
-      'userId': _currentUserId,
-      'timestamp': formattedTimestamp
-    });
+    _controller.add(currentData);
   }
 
   Stream<Map<String, String>> get stream => _controller.stream;
