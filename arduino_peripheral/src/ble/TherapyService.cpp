@@ -6,8 +6,8 @@ TherapyService* TherapyService::_instance = nullptr;
 TherapyService::TherapyService() 
     : _service(THERAPY_CONTROL_SERVICE_UUID),
       _timeElapsedChar(TIME_ELAPSED_UUID, BLERead | BLENotify, sizeof(unsigned int)),
-      _intensityChar(INTENSITY_UUID, BLERead | BLEWrite | BLENotify, 3), // Set to 3 since 100% is the maximum
-      _targetTimeChar(TARGET_TIME_UUID, BLERead | BLEWrite | BLENotify, sizeof(unsigned int)),
+      _intensityChar(INTENSITY_UUID, BLERead | BLEWrite, 3), // Set to 3 since 100% is the maximum
+      _targetTimeChar(TARGET_TIME_UUID, BLERead | BLEWrite, sizeof(unsigned int)),
       _statusChar(STATUS_UUID, BLERead | BLENotify, 20), // Set to 1 since there will only be 2 modes NOTE: CHANGE TO BOOL LATER
       _timeStampChar(TIME_STAMP_UUID, BLERead | BLEWrite, 20),
       _userIdChar(USER_ID_UUID, BLERead | BLEWrite, 50),
