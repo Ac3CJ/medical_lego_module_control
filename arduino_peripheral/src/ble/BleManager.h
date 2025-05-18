@@ -13,7 +13,7 @@ void onBLEDisconnected(BLEDevice central);
 
 class BleManager {
 public:
-    BleManager(TherapyService& therapyService, ModuleInfoService& moduleInfoService, TherapyController& therapyController);
+    BleManager(TherapyService& therapyService, ModuleInfoService& moduleInfoService);
     bool begin();
     void update();
     void advertise();
@@ -21,7 +21,6 @@ public:
 private:
     TherapyService& _therapyService;
     ModuleInfoService& _moduleInfoService;
-    TherapyController& _therapyController;
     
     void setupBle();
     void setConnectionParameters();

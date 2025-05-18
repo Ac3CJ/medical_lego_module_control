@@ -10,7 +10,7 @@
 TherapyService therapyService;
 ModuleInfoService moduleInfoService;
 TherapyController therapyController;
-BleManager bleManager(therapyService, moduleInfoService, therapyController);
+BleManager bleManager(therapyService, moduleInfoService);
 
 void linkCallbackAndController() {
   // BLE writes -> Controller callbacks
