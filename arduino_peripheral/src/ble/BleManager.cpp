@@ -18,9 +18,6 @@ bool BleManager::begin() {
     // Set up connection event handlers
     BLE.setEventHandler(BLEConnected, onBLEConnected);
     BLE.setEventHandler(BLEDisconnected, onBLEDisconnected);
-
-    // Link service with controller
-    linkServiceAndController();
     
     setupBle();
     setConnectionParameters();
@@ -54,26 +51,6 @@ void BleManager::update() {
 
 void BleManager::advertise() {
     BLE.advertise();
-}
-
-void BleManager::linkServiceAndController() {
-    // BLE writes -> Controller callbacks
-    _therapyService.setTargetTimeCallback([this](unsigned int targetTime) {
-        _therapyController.onTargetTimeUpdated(targetTime);
-    });
-    _therapyService.setIntensityCallback([this](byte intensity) {
-        _therapyController.onIntensityUpdated(intensity);
-    });
-    _therapyService.setTimeStampCallback([this](const String& timeStamp) {
-        _therapyController.onTimeStampUpdated(timeStamp);
-    });
-    _therapyService.setUserIdCallback([this](const String& userId) {
-        _therapyController.onUserIdUpdated(userId);
-    });
-
-    // Controller -> Service feedback
-    _therapyController.setTherapyService(&_therapyService);
-    _therapyController.setModuleInfoService(&_moduleInfoService);
 }
 
 // Implementation of the event handler functions

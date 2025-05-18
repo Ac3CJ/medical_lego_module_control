@@ -25,7 +25,6 @@ private:
     
     void setupBle();
     void setConnectionParameters();
-    void linkServiceAndController();
 };
 
 #endif
