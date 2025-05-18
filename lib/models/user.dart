@@ -19,6 +19,7 @@ class User {
   String get formattedTimestamp => _timestamp != null 
       ? DateFormat('dd:MM:yyyy\'T\'HH:mm:ss').format(_timestamp!) 
       : '';
+  String get currentTimestamp => DateFormat('dd:MM:yyyy\'T\'HH:mm:ss').format(DateTime.now());
 
   void changeUserId(String newId) {
     _currentUserId = newId;

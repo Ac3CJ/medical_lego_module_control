@@ -37,7 +37,7 @@ GATT_CHRC_IFACE = "org.bluez.GattCharacteristic1"
 NOTIFY_TIMEOUT = 5000
 
 VIRTUAL_DEVICE_NAME = "LM Health Virtual"
-VIRTUAL_DEVICE_ID = "VBR-VIR" # TMP-VIR VBR-VIR IR-VIR
+VIRTUAL_DEVICE_ID = "TMP-VIR" # TMP-VIR VBR-VIR IR-VIR
 VIRTUAL_LOCATION = 2
 VIRTUAL_FIRMWARE_VERSION = "1.0.0"
 
@@ -573,7 +573,7 @@ class IntensityCharacteristic(Characteristic):
 
         Characteristic.__init__(
                 self, self.UNIT_CHARACTERISTIC_UUID,
-                ["notify", "read", "write"], service)
+                ["read", "write"], service)
         self.add_descriptor(IntensityDescriptor(self))
 
     def getIntensity(self):
@@ -582,27 +582,6 @@ class IntensityCharacteristic(Characteristic):
         for c in strValue:
             value.append(dbus.Byte(c.encode()))
         return value
-
-    def setIntensityCallback(self):
-        if self.notifying:
-
-            value = self.getIntensity()
-            self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
-
-        return self.notifying
-
-    def StartNotify(self):
-        if self.notifying:
-            return
-
-        self.notifying = True
-
-        value = self.getIntensity()
-        self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
-        self.add_timeout(NOTIFY_TIMEOUT, self.setIntensityCallback)
-
-    def StopNotify(self):
-        self.notifying = False
 
     def ReadValue(self, options):
         value = self.getIntensity()
@@ -674,7 +653,7 @@ class TargetTimeCharacteristic(Characteristic):
 
         Characteristic.__init__(
                 self, self.UNIT_CHARACTERISTIC_UUID,
-                ["notify", "read", "write"], service)
+                ["read", "write"], service)
         self.add_descriptor(TargetTimeDescriptor(self))
 
     def getTargetTime(self):
@@ -683,27 +662,6 @@ class TargetTimeCharacteristic(Characteristic):
         for c in strValue:
             value.append(dbus.Byte(c.encode()))
         return value
-
-    def setTargetTimeCallback(self):
-        if self.notifying:
-
-            value = self.getTargetTime()
-            self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
-
-        return self.notifying
-
-    def StartNotify(self):
-        if self.notifying:
-            return
-
-        self.notifying = True
-
-        value = self.getTargetTime()
-        self.PropertiesChanged(GATT_CHRC_IFACE, {"Value": value}, [])
-        self.add_timeout(NOTIFY_TIMEOUT, self.setTargetTimeCallback)
-
-    def StopNotify(self):
-        self.notifying = False
 
     def ReadValue(self, options):
         value = self.getTargetTime()

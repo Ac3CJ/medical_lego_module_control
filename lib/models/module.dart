@@ -234,7 +234,6 @@ class Module {
     _reconnectAttempts = 0; // Reset reconnect attempts on successful connection
 
     _bleManager ??= BleServiceManager(_device!); // Initialize BLE manager if not available
-    _bleManager?.startBatteryMonitoring();
     _manageBleStateUpdates(); // Start RSSI updates
   }
 
@@ -320,7 +319,7 @@ class Module {
     final user = User();
     if (user.currentUserId.isNotEmpty) {
       _bleManager?.setUserId(user.currentUserId);
-      _bleManager?.setTimestamp(user.formattedTimestamp);
+      _bleManager?.setTimestamp(user.currentTimestamp);
     }
 
     _bleManager?.refreshValues();
@@ -385,6 +384,7 @@ class BleServiceManager {
   BleServiceManager(this.device) {
     _initStatusMonitoring();
     _initBatteryMonitoring();
+    _initElapsedTimeMonitoring();
   }
 
   // Destructor
@@ -416,23 +416,15 @@ class BleServiceManager {
   void _initStatusMonitoring() {
     _statusSubscription = getStatus().listen((status) {
       // Handle status changes
-      statusValue = status.obs;
-      if (status == 'Active') {
+      statusValue.value = status;
+/*       if (status == 'Active') {
         _startElapsedTimeMonitoring();
         _isTherapyActive.value = true;
       } else {
         _stopElapsedTimeMonitoring();
-      }
+      } */
     }, onError: (error) {
       print('Error in status stream: $error');
-    });
-  }
-
-  void startBatteryMonitoring() {
-    _initBatteryMonitoring();
-    // Also read the initial value
-    readBatteryLevel().then((value) {
-      batteryLifeValue.value = value;
     });
   }
 
@@ -447,8 +439,18 @@ class BleServiceManager {
     });
   }
 
+  void _initElapsedTimeMonitoring() {
+    _elapsedTimeSubscription?.cancel();
+    
+    _elapsedTimeSubscription = getTimeElapsed().listen((time) {
+      elapsedTimeValue.value = time;
+    }, onError: (error) {
+       print('Error in elapsed time stream: $error');print('Error in battery level stream: $error');
+    });
+  }
+
   void _startElapsedTimeMonitoring() {
-    if (!_isTherapyActive.value) {_elapsedTimeSubscription?.cancel();} // Cancel any existing subscription
+    _elapsedTimeSubscription?.cancel(); // Cancel any existing subscription
     
     _elapsedTimeSubscription = getTimeElapsed().listen((time) {
       elapsedTimeValue.value = time;
@@ -470,14 +472,13 @@ class BleServiceManager {
   Future<void> refreshValues() async {
     intensityValue.value = (await getIntensity());
     targetTimeValue.value = (await getTargetTime());
-    batteryLifeValue.value = (await readBatteryLevel());
+    // batteryLifeValue.value = (await readBatteryLevel());
     statusValue.value = (await readStatus());
 
     if (statusValue.value == 'Active') {
-      _startElapsedTimeMonitoring();
       _isTherapyActive.value = true;
     } else {
-      _stopElapsedTimeMonitoring();
+      _isTherapyActive.value = false;
     }
   }
 
