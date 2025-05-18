@@ -449,26 +449,6 @@ class BleServiceManager {
     });
   }
 
-  void _startElapsedTimeMonitoring() {
-    _elapsedTimeSubscription?.cancel(); // Cancel any existing subscription
-    
-    _elapsedTimeSubscription = getTimeElapsed().listen((time) {
-      elapsedTimeValue.value = time;
-    }, onError: (error) {
-      print('Error in elapsed time stream: $error');
-    });
-  }
-
-  void _stopElapsedTimeMonitoring() {
-    _elapsedTimeSubscription?.cancel();
-    _elapsedTimeSubscription = null;
-    elapsedTimeValue.value = 0.0; // Reset elapsed time when not active
-    _isTherapyActive.value = false;
-
-    intensityValue.value = 0;
-    targetTimeValue.value = 0;
-  }
-
   Future<void> refreshValues() async {
     intensityValue.value = (await getIntensity());
     targetTimeValue.value = (await getTargetTime());

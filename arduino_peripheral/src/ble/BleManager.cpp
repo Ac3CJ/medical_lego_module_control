@@ -4,11 +4,9 @@ void onBLEConnected(BLEDevice central);
 void onBLEDisconnected(BLEDevice central);
 
 BleManager::BleManager(TherapyService& therapyService, 
-                       ModuleInfoService& moduleInfoService,
-                       TherapyController& therapyController) 
+                       ModuleInfoService& moduleInfoService) 
     : _therapyService(therapyService), 
-      _moduleInfoService(moduleInfoService),
-      _therapyController(therapyController) {}
+      _moduleInfoService(moduleInfoService) {}
 
 bool BleManager::begin() {
     if (!BLE.begin()) {
